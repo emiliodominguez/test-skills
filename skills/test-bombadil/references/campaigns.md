@@ -58,9 +58,12 @@ On a laptop, prevent sleep for the duration (for example `caffeinate -i` on macO
 - **Scheduled:** nightly or weekly campaigns on the main branch or a staging deployment. Upload
   the output folder (traces, screenshots, `run.json`, summary) as an artifact so a finding can be
   inspected and reproduced locally.
-- The official GitHub Action (`antithesishq/bombadil-action`) covers a managed browser against a
-  URL: inputs `driver`, `origin`, `specification`, `time-limit`, `exit-on-violation`,
-  `output-path`. For an Electron app or a custom harness, run your runner script instead.
+- The official GitHub Action (`antithesishq/bombadil-action@v3` for 0.7.x) covers a managed
+  browser against a URL: inputs `driver`, `origin`, `specification`, `time-limit`,
+  `exit-on-violation`, `output-path`, `version`. Pin `version` explicitly (its default lags the
+  latest release), keep `time-limit` below the job's timeout, and upload the output folder with
+  `if: always()` so failed runs keep their traces. For an Electron app or a custom harness, run
+  the runner script instead.
 - Linux containers often need `--no-sandbox` for the managed browser.
 - Fail the job on exit `2` (violation) and on `1` (harness error), and say which in the summary.
 

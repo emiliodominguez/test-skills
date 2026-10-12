@@ -12,6 +12,48 @@ A specification is an ES module that exports only properties (formulas) and acti
 Properties state what must hold whatever the user did; generators decide what the user can do
 next. Both must be cheap, deterministic and replayable.
 
+## Start from the kit
+
+Copy `assets/kit/` from this skill's folder into the repository (for example
+`tests/bombadil/kit/`). It is typed against the Bombadil package and imports with explicit
+`.ts` extensions, which Bombadil's loader requires:
+
+| Module | Gives you |
+| --- | --- |
+| `properties.ts` | Every kit property plus Bombadil's defaults, ready to `export *` |
+| `text.ts` | `noBrokenValues`: no visible NaN, undefined, Infinity, [object Object], Invalid Date |
+| `layout.ts` | `noHorizontalOverflow`, `controlsHaveNames`, `noDuplicateIds`, `referencesResolve`, `imagesLoad`, `dialogsFitTheWindow` |
+| `dialogs.ts` | `escapeClosesDialogs`, `focusStaysInModal` |
+| `busy.ts` | `busyIndicatorsSettle`: spinners and `aria-busy` clear within 10 seconds |
+| `injection.ts` | `injectedTextStaysInert`: typed payloads never become live markup |
+| `actions.ts` | `waiting`, `keyboard`, `shortTyping`, `hostileTyping` |
+| `values.ts` | Regex value sets: edge dates and numbers, unicode, markup and injection payloads |
+| `temporal.ts`, `dom.ts` | `settles`, `endsWithin`, `minorUnits`, `accessibleName`, `excerpt` |
+
+A complete spec is a few lines: the kit, one or two domain properties and a weighted mix.
+
+```ts
+import { weighted } from "@antithesishq/bombadil/browser";
+import { clicks, inputs, scroll } from "@antithesishq/bombadil/browser/defaults/actions";
+import { hostileTyping, keyboard, shortTyping, waiting } from "./kit/actions.ts";
+
+export * from "./kit/properties.ts";
+export * from "./cart.ts"; // domain properties
+
+export const exploring = weighted([
+	[100, clicks],
+	[30, inputs],
+	[60, hostileTyping],
+	[20, shortTyping],
+	[25, keyboard],
+	[10, scroll],
+	[1, waiting],
+]);
+```
+
+Drop kit properties the app cannot satisfy yet into the finding policy as `record` rather than
+deleting them, so the debt stays visible.
+
 ## Layout
 
 ```text

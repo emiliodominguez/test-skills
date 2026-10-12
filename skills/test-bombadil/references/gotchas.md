@@ -23,3 +23,11 @@ Observed behaviors and their workarounds. Re-check them when upgrading.
 | `trace.jsonl already exists` | Output folder reused | Pass `--output-path-overwrite` |
 | `--reproduce` rejected | It conflicts with `--time-limit` and `--exit-on-violation` | Drop those flags when replaying |
 | An `eventually` fails only when the test ends | Unbounded, it stays pending and is reported as "test ended" at the time limit, far from the cause | Bound it: `eventually(check).within(n, "seconds")` |
+| `failed to locate chromium/chrome executable` | No Chrome on PATH or in standard locations | Set `CHROME` to a Chrome or Chromium binary (a test framework's downloaded browser works) |
+| `Invalid PermissionDescriptor name: local-network` | Older Chromium builds reject the default `--chrome-grant-permissions` | Pass `--chrome-grant-permissions geolocation` (the bundled runner retries this way and records it) |
+| `unexpected argument '--allow-url'` | Added after 0.7.8 | Restrict exploration with gated generators instead, or upgrade |
+| Replay refuses to start: trace already exists | A replay writing into the original folder | Write the replay to a new folder; the bundled runner uses `<output>/replay` |
+| Replay diverges at a click on a label or plain text | The element has no test id, id, role with name or ARIA label | The page kit's synthesized test ids; verified to move divergence from step 3 to past step 30 |
+| Replay diverges after injected markup renders | Broken images and injected nodes change layout timing, so scroll targets differ | Expected for injection payloads; confirm the finding rather than demanding a byte-identical replay |
+| Runs stall on apps with service-worker mocks, server-sent events or WebSockets | Quiescence never settles while streams stay open | Close streams in test builds or fake them; keep the watchdog |
+| Shift-modified keys, right click and meta shortcuts are not generated | Not in the action set | Expose those features through visible controls in test builds, or test them in scripted tours |

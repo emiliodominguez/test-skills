@@ -1,7 +1,7 @@
 ---
 name: test-bombadil
 description: "Property-based UI exploration with Bombadil: install, harness, runner, campaigns and CI for web or Electron apps. Use when setting up or running Bombadil or autonomous UI testing. Hands off to `test-bombadil-spec` for properties and `test-findings`."
-compatibility: "Bombadil 0.7.x on macOS (Apple silicon) or Linux x86_64; Chromium or an Electron app with a DevTools port."
+compatibility: "Bombadil 0.7.x (verified on 0.7.8) on macOS arm64 or Linux x64/arm64; Node 20+; Chrome or Chromium, or an Electron app with a DevTools port."
 metadata:
   stage: explore
 ---
@@ -14,18 +14,29 @@ replay. The harness around it decides whether those reports are reproducible and
 
 ## Phase 1: First run
 
-1. Install as a dev dependency: `@antithesishq/bombadil` gives the CLI and the spec types.
-   Native binaries exist for macOS on Apple silicon and Linux x86_64; elsewhere use the Docker
-   image or a Linux CI runner.
-2. Smoke-test with the built-in defaults against the running app:
-   `bombadil browser test <origin> --headless --time-limit 2m --exit-on-violation --output-path out/bombadil/smoke`.
-   The defaults check uncaught exceptions, unhandled rejections, console errors and HTTP 4xx/5xx
-   responses, with clicks, inputs, scroll and navigation.
-3. Open the trace with `bombadil browser inspect out/bombadil/smoke`. A violation on a healthy
-   app usually means the app logs errors on purpose or calls a failing endpoint; fix that or
-   narrow the default before writing anything else.
-4. Exit codes: `0` clean or time limit reached, `2` a property was violated, `1` any other error.
+1. Install as a dev dependency: `@antithesishq/bombadil` ships the CLI binaries (macOS arm64,
+   Linux x64 and arm64) and the spec types. Elsewhere, use the Docker image or a Linux runner.
+2. Make a browser findable. Bombadil reads the `CHROME` variable, then looks for Chrome or
+   Chromium on PATH and in standard locations. A browser downloaded by a test framework works:
+   point `CHROME` at it.
+3. Copy the bundled runner from this skill's `assets/` folder into the repository (for example
+   `scripts/bombadil-run.mjs`) and smoke-test with the built-in defaults:
+
+   ```sh
+   node scripts/bombadil-run.mjs --start "npm run preview" --origin http://127.0.0.1:4173/ --time-limit 2m
+   ```
+
+   The runner finds the binary and a browser, starts the app and waits for it, runs headless
+   under a watchdog, writes `run.json` and `summary.md` next to the trace, and works around
+   browsers that reject Bombadil's default permission grants. The defaults check uncaught
+   exceptions, unhandled rejections, console errors and HTTP 4xx/5xx responses.
+4. Read `summary.md`, then open the trace with `bombadil browser inspect <output>`. A violation
+   on a healthy app usually means the app logs errors on purpose or calls a failing endpoint;
+   fix that or narrow the defaults before writing anything else.
+5. Exit codes: `0` clean or time limit reached, `2` a property was violated, `1` any other error.
    Scripts and CI must treat `1` as a broken run, not a pass.
+
+Without the runner: `bombadil browser test <origin> [spec] --headless --time-limit 2m --output-path out/bombadil/smoke`.
 
 ## Phase 2: Decide the target
 
@@ -34,26 +45,28 @@ replay. The harness around it decides whether those reports are reproducible and
 - **External browser or Electron** (`browser test-external <origin> [spec] --remote-debugger http://127.0.0.1:<port>`):
   you launch the app with `--remote-debugging-port=<port>`. Omit `--create-target` for Electron
   so Bombadil uses the existing window instead of opening a tab.
-- Keep exploration on the app: by default it stays on the origin; widen or narrow it with
-  `--allow-url <match pattern>`. Pass auth with `--cookie` or `--header`, or sign in through a
-  gated action (see `test-bombadil-spec`).
+- Exploration stays on the origin. (Newer releases add `--allow-url` match patterns; 0.7.8 does
+  not have it.) Pass auth with `--cookie` or `--header`, or sign in through a gated action (see
+  `test-bombadil-spec`).
 
 ## Phase 3: Build the harness
 
-A raw run explores, but its findings often do not replay and some failures stay invisible. Before
-relying on it, add a runner and a page kit. Read [references/runner.md](references/runner.md) for
-the runner (bundling specs, spawning the binary, watchdog, recorded setup, policy) and
-[references/harness.md](references/harness.md) for the page kit (stable test ids, settling,
-measurements, injection sentinels, fenced side effects, seeded fault injection).
+A raw run explores, but its findings often do not replay and some failures stay invisible.
 
-Minimum for trustworthy results:
+1. **Load the page kit** from `assets/page-kit.js` before the app's own scripts, in test builds
+   only: a script tag injected by the dev or preview server, an init script, or a preload in a
+   desktop shell. It synthesizes stable test ids (replay matches clicks by test id, id, role with
+   name or ARIA label, never by text), records injection sentinels (Bombadil answers `alert`
+   itself, so XSS would pass unseen) and measures requests and slow interactions.
+2. **Isolate the run:** a fresh, seeded data store per run, fake hardware and external services,
+   native dialogs, printing, external links and app quit fenced.
+3. **Keep the setup with the trace.** The runner writes `run.json`; replay with
+   `node scripts/bombadil-run.mjs --reproduce <output>`, which starts the app the same way and
+   writes the replay to `<output>/replay`.
 
-- A fresh, seeded data store per run, with fake hardware and external services.
-- Native dialogs, printing, external links and app quit fenced.
-- Specs bundled into one file with the Bombadil package kept external.
-- A stable id on every clickable element, so clicks replay.
-- Settling after each action, so the recorded state is the finished one.
-- The full setup written next to the trace, so replays repeat it.
+Read [references/harness.md](references/harness.md) for the page kit internals, settling and
+seeded fault injection, and [references/runner.md](references/runner.md) for what a runner owns
+(bundling, watchdog, policy, latency baselines) when a project outgrows the bundled one.
 
 ## Phase 4: Run it on a cadence
 
@@ -82,7 +95,8 @@ workarounds.
 ## Done when
 
 - The defaults run clean on the app, headless, with the command recorded.
-- Runs write a trace plus the setup needed to replay them, and a replay of a known run matches.
+- Runs write a trace plus the setup needed to replay them; a replay of a known run matches, or
+  its divergence is explained (settling, ids, data).
 - The cadence (per change, scheduled) is wired or explicitly deferred.
 
 Write properties and actions with `test-bombadil-spec`; triage what runs find with `test-findings`.
