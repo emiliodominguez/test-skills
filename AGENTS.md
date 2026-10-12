@@ -21,6 +21,8 @@ validates skills, `src/core/distribution.ts` checks profiles and manifests.
 Run `pnpm check` before committing (format check, typecheck, validate, tests). Run `pnpm smoke`
 for install script or manifest changes; it needs npm registry access. `pnpm verify` adds the
 Bombadil demos, the install smoke test and `pnpm codex` (the real Codex CLI, no model needed). CI is manual-only (no Actions minutes): never rely on it.
+After changing a bundled script, run `pnpm dogfood` (mutation testing of the scripts with
+`mutate.mjs`, slow) and kill the survivors that matter with tests, not by lowering the floor.
 
 ## Skill authoring
 

@@ -27,11 +27,20 @@ export function parseArgs(argv) {
 	if (separator === -1 || separator === argv.length - 1) throw new Error("usage: repeat.mjs [--runs n] [--parallel k] [--until-fail] [--out dir] -- <command...>");
 
 	const own = argv.slice(0, separator);
-	const value = function read(name, fallback) {
+
+	/**
+	 * Value of an option, or its fallback.
+	 *
+	 * @param {string} name - Option name.
+	 * @param {string} fallback - Default value.
+	 * @returns {string} Value.
+	 */
+	function value(name, fallback) {
 		const index = own.indexOf(name);
 
 		return index === -1 ? fallback : own[index + 1];
-	};
+	}
+
 	const runs = Number(value("--runs", "20"));
 	const parallel = Number(value("--parallel", "1"));
 
