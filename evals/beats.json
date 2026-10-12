@@ -9,7 +9,7 @@
 		"test-bombadil": ["exit codes", "test-external", "build the harness", "watchdog"],
 		"test-bombadil-spec": ["extract", "settles", "\"wait\"", "keep-going on a correct app"],
 		"test-findings": ["reproduce on a fresh environment", "shrink", "classify", "expiry date"],
-		"test-audit": ["audit-tests.mjs", "prove the rest bite", "surviving mutant", "audit-tests-ignore"],
+		"test-audit": ["audit-tests.mjs", "mutate.mjs", "prove the rest bite", "audit-tests-ignore"],
 		"test-guard": ["guard-tests.mjs", "resolve every error", "read every changed expectation", "justification"],
 		"test-flaky": ["measure before touching anything", "repeat.mjs", "classify the source", "never hide it behind a retry"],
 		"test-properties": ["round trip", "shrunk counterexample", "deliberately wrong implementation", "model-based testing"],

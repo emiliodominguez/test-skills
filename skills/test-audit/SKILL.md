@@ -51,9 +51,17 @@ then prove the remaining ones can, by breaking the code on purpose.
    - delete a call with a side effect (save, emit, validate).
 
    Every mutant must make at least one test fail. A surviving mutant is a missing assertion;
-   name it. Revert each mutant before the next; never leave one behind. If the repository has a
-   mutation tool configured (for example a Stryker, mutmut or go-mutesting setup), run it on the
-   changed files instead of mutating by hand, and report the score with the surviving mutants.
+   name it. Run the bundled mutation script per source file; it applies each mutant, runs the
+   tests, restores the file and lists the survivors:
+
+   ```sh
+   node scripts/mutate.mjs --file src/pricing.ts -- <command that runs only the related tests>
+   node scripts/mutate.mjs --file app/pricing.py --lines 10-60 --min-score 80 -- pytest tests/test_pricing.py -x -q
+   ```
+
+   Point it at the files the change touched and a fast, focused test command; each mutant is a
+   full run. If the repository already has a mutation tool configured (for example Stryker,
+   mutmut or go-mutesting), use that instead and report its score with the surviving mutants.
 4. **Report.** Group by severity: tests that cannot fail, tests that check mocks, surviving
    mutants, flakiness risks. For each: file and line, why it cannot catch a regression, and the
    assertion or change that would fix it. Fix them only when asked.
@@ -62,7 +70,7 @@ then prove the remaining ones can, by breaking the code on purpose.
 
 - "The suite is green and coverage is 90%": coverage counts executed lines, not checked ones.
 - "The test name says it checks X": read the assertions; names do not fail.
-- "Mutation testing is too slow": mutate by hand the three lines the change touched.
+- "Mutation testing is too slow": run it with `--lines` on the lines the change touched.
 - "I'll just update the snapshot": a snapshot accepted without reading the diff is a deleted test.
 
 ## Anti-patterns
