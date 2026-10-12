@@ -6,6 +6,7 @@
 //   node bombadil-run.mjs --start "npm run preview" --origin http://127.0.0.1:4173/ --spec bombadil/spec.ts --time-limit 5m
 //   node bombadil-run.mjs --reproduce out/bombadil/spec
 //   node bombadil-run.mjs --summarize out/bombadil/spec
+//   node bombadil-run.mjs --terminal "node cli.mjs" --spec bombadil/cli.ts --time-limit 1m
 //
 // Options:
 //   --origin <url>          Start URL; exploration stays on its origin
@@ -18,15 +19,18 @@
 //   --start <command>       Shell command that serves the app; stopped when the run ends
 //   --policy <file>         Finding policy JSON (default bombadil/policy.json when present)
 //   --external <url>        Attach to a running browser or Electron app's DevTools endpoint
+//   --terminal <command>    Test a terminal program instead of a web page (run through sh -c)
 //   --reproduce <dir>       Replay a previous run with its recorded setup
 //   --summarize <dir>       Only summarize an existing trace
 //   --silence <seconds>     Watchdog: stop after this long without output (default 120)
+//   --prune-clean           Delete the trace and screenshots of a run with no findings (they grow fast)
 //   -- <args>               Passed to Bombadil unchanged
 //
 // Exit codes match Bombadil: 0 clean (or only recorded findings), 2 a finding failed the run, 1 error.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -42,7 +46,7 @@ export const VIOLATED = 2;
  */
 export function parseArgs(argv) {
 	const options = { passthrough: [] };
-	const flags = new Set(["keep-going", "headed"]);
+	const flags = new Set(["keep-going", "headed", "prune-clean"]);
 
 	for (let index = 0; index < argv.length; index += 1) {
 		const argument = argv[index];
@@ -141,22 +145,35 @@ export function locateChrome(env) {
 }
 
 /**
- * Read a JSONL trace written by Bombadil.
+ * Stream a JSONL trace written by Bombadil, keeping only what the summary needs. Traces can reach
+ * gigabytes (terminal states carry the whole screen), so they are never read whole.
  *
  * @param {string} output - Output folder holding trace.jsonl.
- * @returns {Array<Record<string, unknown>>} One entry per recorded state.
+ * @returns {Promise<Array<{ action: unknown, state: { url?: string }, violations: Array<{ name: string }> }>>} One slim entry per recorded state.
  */
-export function readTrace(output) {
+export async function readTrace(output) {
 	const file = join(output, "trace.jsonl");
+	const entries = [];
 
-	if (!existsSync(file)) return [];
+	if (!existsSync(file)) return entries;
 
-	return readFileSync(file, "utf8")
-		.split("\n")
-		.filter(Boolean)
-		.map(function parse(line) {
-			return JSON.parse(line);
+	const lines = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+
+	for await (const line of lines) {
+		if (!line) continue;
+
+		const entry = JSON.parse(line);
+
+		entries.push({
+			action: entry.action ?? null,
+			state: { url: entry.state?.url },
+			violations: (entry.violations ?? []).map(function nameOnly(violation) {
+				return { name: violation.name };
+			}),
 		});
+	}
+
+	return entries;
 }
 
 /**
@@ -232,7 +249,7 @@ export function applyPolicy(findings, policy, today) {
  * @returns {string} Markdown.
  */
 export function renderSummary(run) {
-	const lines = [`# Bombadil run`, "", `- Origin: ${run.setup.origin}`, `- Spec: ${run.setup.spec ?? "defaults"}`, `- States: ${run.states}`, ""];
+	const lines = [`# Bombadil run`, "", run.setup.terminal ? `- Command: ${run.setup.terminal}` : `- Origin: ${run.setup.origin}`, `- Spec: ${run.setup.spec ?? "defaults"}`, `- States: ${run.states}`, ""];
 	const shown = run.verdicts.filter(function visible(finding) {
 		return finding.verdict !== "ignore";
 	});
@@ -352,7 +369,8 @@ function runBombadil(binary, args, env, silenceMs) {
 		function forward(chunk) {
 			const text = chunk.toString();
 
-			log += text;
+			// Keep only the tail: terminal runs print the whole screen for every state.
+			log = (log + text).slice(-262_144);
 			process.stdout.write(text.replaceAll(/^\s+\d+: <unknown>\n/gmu, ""));
 			arm();
 		}
@@ -377,7 +395,7 @@ async function main(argv) {
 	const options = parseArgs(argv);
 
 	if (options.summarize) {
-		const trace = readTrace(String(options.summarize));
+		const trace = await readTrace(String(options.summarize));
 		const setupFile = join(String(options.summarize), "run.json");
 		const setup = existsSync(setupFile) ? JSON.parse(readFileSync(setupFile, "utf8")) : { origin: "?" };
 
@@ -388,7 +406,7 @@ async function main(argv) {
 	const recorded = options.reproduce ? JSON.parse(readFileSync(join(String(options.reproduce), "run.json"), "utf8")) : {};
 	const setup = { ...recorded, ...withoutRunOnly(options) };
 
-	if (!setup.origin) throw new Error("--origin is required");
+	if (!setup.origin && !setup.terminal) throw new Error("--origin or --terminal is required");
 
 	const spec = setup.spec ? resolve(String(setup.spec)) : undefined;
 	const original = options.reproduce ? resolve(String(options.reproduce)) : undefined;
@@ -399,6 +417,13 @@ async function main(argv) {
 	const chrome = locateChrome(env);
 
 	if (chrome) env.CHROME = chrome;
+
+	if (setup.terminal) {
+		const shared = ["terminal", "test", ...(spec ? ["--specification", spec] : []), "--output-path", output, "--output-path-overwrite", ...(setup.passthrough ?? [])];
+		const run = original ? [...shared, "--reproduce", original] : [...shared, "--time-limit", String(setup["time-limit"] ?? "3m"), ...(setup["keep-going"] ? [] : ["--exit-on-violation"])];
+
+		return finish(binary, [...run, "--", "sh", "-c", String(setup.terminal)], env, setup, output, original, undefined);
+	}
 
 	const target = setup.external ? ["browser", "test-external", setup.origin, ...(spec ? [spec] : []), "--remote-debugger", setup.external] : ["browser", "test", setup.origin, ...(spec ? [spec] : [])];
 	const shared = [
@@ -415,10 +440,26 @@ async function main(argv) {
 	const args = original ? [...shared, "--reproduce", original] : [...shared, "--time-limit", String(setup["time-limit"] ?? "3m"), ...(setup["keep-going"] ? [] : ["--exit-on-violation"])];
 	const server = setup.start ? await startApp(String(setup.start), String(setup.origin), 60_000) : undefined;
 
+	return finish(binary, args, env, setup, output, original, server);
+}
+
+/**
+ * Run Bombadil, apply the policy, write the summary and pick the exit code.
+ *
+ * @param {string} binary - Bombadil executable.
+ * @param {string[]} args - Bombadil arguments.
+ * @param {NodeJS.ProcessEnv} env - Environment.
+ * @param {Record<string, any>} setup - The run's recorded setup.
+ * @param {string} output - Output folder.
+ * @param {string | undefined} original - The original run folder when replaying.
+ * @param {import("node:child_process").ChildProcess | undefined} server - App server to stop afterwards.
+ * @returns {Promise<number>} Exit code.
+ */
+async function finish(binary, args, env, setup, output, original, server) {
 	try {
 		mkdirSync(output, { recursive: true });
 
-		if (!options.reproduce) writeFileSync(join(output, "run.json"), `${JSON.stringify({ ...setup, startedAt: new Date().toISOString() }, null, "\t")}\n`);
+		if (!original) writeFileSync(join(output, "run.json"), `${JSON.stringify({ ...setup, startedAt: new Date().toISOString() }, null, "\t")}\n`);
 
 		let result = await runBombadil(binary, args, env, Number(setup.silence ?? 120) * 1000);
 
@@ -434,7 +475,7 @@ async function main(argv) {
 			}
 		}
 
-		const trace = readTrace(output);
+		const trace = await readTrace(output);
 		const verdicts = applyPolicy(summarizeTrace(trace), loadPolicy(setup.policy), today());
 		const reproduce = `node ${relativeScript()} --reproduce ${original ?? output}`;
 
@@ -451,14 +492,20 @@ async function main(argv) {
 		});
 
 		// A stalled run keeps the findings it recorded before the watchdog stopped it.
-		if (result.stalled) {
-			process.stderr.write("The watchdog stopped a stalled run; findings recorded before the stall are kept.\n");
-			return failing ? VIOLATED : 1;
+		if (result.stalled) process.stderr.write("The watchdog stopped a stalled run; findings recorded before the stall are kept.\n");
+
+		// Recorded findings decide the run even when Bombadil exits 1, as it does when a terminal
+		// program under test exits with an error or the watchdog stops a stall.
+		if (failing) return VIOLATED;
+
+		const code = result.code === 0 && !result.stalled ? 0 : result.code === VIOLATED ? 0 : 1;
+
+		if (code === 0 && verdicts.length === 0 && setup["prune-clean"]) {
+			for (const entry of ["trace.jsonl", "screenshots"]) rmSync(join(output, entry), { recursive: true, force: true });
+			process.stdout.write("Clean run: trace and screenshots pruned; summary.md and run.json kept.\n");
 		}
 
-		if (result.code !== 0 && result.code !== VIOLATED) return 1;
-
-		return failing ? VIOLATED : 0;
+		return code;
 	} finally {
 		if (server) stopProcess(server);
 	}

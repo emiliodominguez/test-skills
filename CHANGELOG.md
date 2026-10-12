@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Bombadil terminal driver: `references/terminal.md`, a verified `examples/buggy-cli` demo and
+  `--terminal` in the runner.
+- Runner streams traces (terminal traces reach gigabytes), bounds its log, and prunes clean runs
+  with `--prune-clean`.
+- CI is manual-only; `pnpm verify` runs the gate and both demos locally.
+
 ## 0.2.0
 
 - New skills: `test-audit`, `test-guard`, `test-flaky`, `test-properties`, `test-e2e-to-bombadil`.

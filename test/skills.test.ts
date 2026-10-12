@@ -140,10 +140,14 @@ describe("the corpus", function corpus() {
 	});
 
 	test("names no agent host or invocation syntax in skill text", function portable() {
-		const hosts = /\b(claude|codex|cursor|copilot|gemini|anthropic|openai)\b|(^|\s)\/test-|\$test-/i;
+		// "Cursor" is matched case-sensitively: lowercase cursor is a terminal concept, not the agent.
+		const hosts = /\b(claude|codex|copilot|gemini|anthropic|openai)\b|(^|\s)\/test-|\$test-/i;
+		const caseSensitiveHosts = /\bCursor\b/;
 		const offenders = skills
 			.filter(function mentionsHost(skill) {
-				return hosts.test(`${skill.body}\n${skill.supporting}\n${skill.frontmatter.description}`);
+				const text = `${skill.body}\n${skill.supporting}\n${skill.frontmatter.description}`;
+
+				return hosts.test(text) || caseSensitiveHosts.test(text);
 			})
 			.map(function toName(skill) {
 				return skill.name;

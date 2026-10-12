@@ -1,7 +1,7 @@
 ---
 name: test-bombadil
 description: "Property-based UI exploration with Bombadil: install, harness, runner, campaigns and CI for web or Electron apps. Use when setting up or running Bombadil or autonomous UI testing. Hands off to `test-bombadil-spec` for properties and `test-findings`."
-compatibility: "Bombadil 0.7.x (verified on 0.7.8) on macOS arm64 or Linux x64/arm64; Node 20+; Chrome or Chromium, or an Electron app with a DevTools port."
+compatibility: "Bombadil 0.7.x (verified on 0.7.8) on macOS arm64 or Linux x64/arm64; Node 20+; Chrome or Chromium, an Electron app with a DevTools port, or a terminal program."
 metadata:
   stage: explore
 ---
@@ -45,6 +45,9 @@ Without the runner: `bombadil browser test <origin> [spec] --headless --time-lim
 - **External browser or Electron** (`browser test-external <origin> [spec] --remote-debugger http://127.0.0.1:<port>`):
   you launch the app with `--remote-debugging-port=<port>`. Omit `--create-target` for Electron
   so Bombadil uses the existing window instead of opening a tab.
+- **Terminal program** (`terminal test -- <command>`): Bombadil runs a CLI or TUI in a
+  pseudo-terminal and checks the rendered screen. Read [references/terminal.md](references/terminal.md);
+  the runner takes `--terminal "<command>"`.
 - Exploration stays on the origin. (Newer releases add `--allow-url` match patterns; 0.7.8 does
   not have it.) Pass auth with `--cookie` or `--header`, or sign in through a gated action (see
   `test-bombadil-spec`).

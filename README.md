@@ -73,6 +73,10 @@ and the stuck checkout spinner shows up within a few runs. Then `pnpm demo:fixed
 app with the bugs off and the same spec stays silent (about 850 states, exit 0). `pnpm verify` runs both,
 with the rest of the gate, before every release.
 
+Terminal programs too: [`examples/buggy-cli`](examples/buggy-cli) is a todo list TUI with three
+seeded bugs (a byte cut that prints U+FFFD, a double-counted status line, a crash on position 0).
+`pnpm demo:cli` finds all three in 45 seconds with no browser; `pnpm demo:cli:fixed` stays silent.
+
 **It found a bug we did not plant.** The first "fixed" build still failed `cartTotalAddsUp`:
 Bombadil typed a huge quantity, the line amount overflowed JavaScript's safe integers, and the
 total stopped matching its lines. No one had written that test. The property did not need anyone to.

@@ -1,5 +1,16 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { applyPolicy, describeAction, locateChrome, parseArgs, renderSummary, summarizeTrace } from "../skills/test-bombadil/assets/bombadil-run.mjs";
+import {
+	applyPolicy,
+	describeAction,
+	locateChrome,
+	parseArgs,
+	readTrace,
+	renderSummary,
+	summarizeTrace,
+} from "../skills/test-bombadil/assets/bombadil-run.mjs";
 
 const trace = [
 	{ action: null, state: { url: "http://app/" }, violations: [] },
@@ -90,5 +101,26 @@ describe("reporting helpers", function helpers() {
 
 	test("locateChrome prefers the CHROME variable", function chrome() {
 		expect(locateChrome({ CHROME: "/opt/chrome" })).toBe("/opt/chrome");
+	});
+});
+
+describe("readTrace", function readTraceSuite() {
+	test("streams a trace into slim entries and tolerates a missing file", async function streams() {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "trace-"));
+		const big = {
+			action: "Wait",
+			state: { url: "http://app/", screenshot: "x".repeat(10_000) },
+			snapshots: [{ name: "grid", value: "y".repeat(10_000) }],
+			violations: [{ name: "p", violation: { huge: true } }],
+		};
+
+		fs.writeFileSync(path.join(dir, "trace.jsonl"), `${JSON.stringify(big)}\n\n${JSON.stringify({ action: null, state: {} })}\n`);
+
+		expect(await readTrace(dir)).toEqual([
+			{ action: "Wait", state: { url: "http://app/" }, violations: [{ name: "p" }] },
+			{ action: null, state: { url: undefined }, violations: [] },
+		]);
+		expect(await readTrace(path.join(dir, "missing"))).toEqual([]);
+		fs.rmSync(dir, { recursive: true, force: true });
 	});
 });
