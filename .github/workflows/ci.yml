@@ -1,9 +1,9 @@
 name: ci
 
+# Automatic triggers are off: the account has no Actions minutes. Run `pnpm verify` locally
+# instead, or start this workflow by hand from the Actions tab.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

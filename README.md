@@ -70,8 +70,8 @@ One two-minute run (long typed strings shortened):
 
 Exploration is random: a single two-minute run usually finds five or six of the six seeded bugs,
 and the stuck checkout spinner shows up within a few runs. Then `pnpm demo:fixed` serves the same
-app with the bugs off and the same spec stays silent (about 850 states, exit 0). CI runs both on
-every change.
+app with the bugs off and the same spec stays silent (about 850 states, exit 0). `pnpm verify` runs both,
+with the rest of the gate, before every release.
 
 **It found a bug we did not plant.** The first "fixed" build still failed `cartTotalAddsUp`:
 Bombadil typed a huge quantity, the line amount overflowed JavaScript's safe integers, and the
@@ -166,7 +166,8 @@ marketplace channel; `npx skills` is the recommended path. Requires Node.js 22.2
 
 - `pnpm check`: formatting, types (the property kit is type-checked against Bombadil 0.7.8),
   skill validation and tests for every bundled script.
-- `scripts/verify-demo.sh` in CI: the demo must find the seeded bugs and stay silent when fixed.
+- `scripts/verify-demo.sh`: the demo must find the seeded bugs and stay silent when fixed.
+- `pnpm verify` runs all of it locally; the GitHub workflow is manual-only.
 - `scripts/smoke-install.sh`: a real `npx skills` install and removal for several agents.
 - The test audit reports no findings on a 199-file production suite it was not written for.
 

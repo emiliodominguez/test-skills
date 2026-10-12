@@ -15,8 +15,8 @@
     - `page-kit.js`: synthesized stable test ids, injection sentinels, request and responsiveness
       measurements.
     - A typed Bombadil property and action kit.
-- `examples/buggy-shop`: a demo store with seeded bugs, verified in CI to be found by the spec and
-  to stay silent when fixed.
+- `examples/buggy-shop`: a demo store with seeded bugs, verified by `pnpm verify` to be found by the
+  spec and to stay silent when fixed.
 - Bombadil gotchas found while verifying 0.7.8.
 
 ## 0.1.0

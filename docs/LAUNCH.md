@@ -13,7 +13,7 @@ What to post, where, and the claims each post can back with something a reader c
 
 | Claim                                                                                                               | Reproduce                                                                               |
 | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Bombadil finds the seeded bugs in a demo store with no scripted paths, and stays silent when fixed                  | `pnpm demo`, `pnpm demo:fixed`, `scripts/verify-demo.sh` (CI)                           |
+| Bombadil finds the seeded bugs in a demo store with no scripted paths, and stays silent when fixed                  | `pnpm demo`, `pnpm demo:fixed`, `scripts/verify-demo.sh`, `pnpm verify`                 |
 | It found a bug nobody planted (safe-integer overflow)                                                               | `examples/buggy-shop/README.md`, `qty-overflow`                                         |
 | The guard catches deleted, skipped and bent tests                                                                   | `node skills/test-guard/scripts/guard-tests.mjs` in a repository after weakening a test |
 | The audit has no false positives on a 199-file production suite                                                     | Run `audit-tests.mjs` on any well-maintained suite and compare                          |
@@ -35,7 +35,7 @@ What to post, where, and the claims each post can back with something a reader c
 
 ## Before posting
 
-- CI green on the default branch, including the demo job.
+- `pnpm verify` green on the default branch, including the demo.
 - The repository is public and the default branch carries the release.
 - A short screen recording of `pnpm demo` (terminal plus `bombadil browser inspect`).
 - Eval results committed with the exact prompts and commands used.

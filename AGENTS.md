@@ -18,7 +18,8 @@ validates skills, `src/core/distribution.ts` checks profiles and manifests.
 ## Required gate
 
 Run `pnpm check` before committing (format check, typecheck, validate, tests). Run `pnpm smoke`
-for install script or manifest changes; it needs npm registry access.
+for install script or manifest changes; it needs npm registry access. `pnpm verify` adds the
+Bombadil demo and the smoke test. CI is manual-only (no Actions minutes): never rely on it.
 
 ## Skill authoring
 
