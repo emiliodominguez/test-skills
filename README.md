@@ -114,11 +114,14 @@ their suites with the bundled mutation tester ([full results](evals/results/2026
 - On small, clearly specified modules the model already wrote strong tests: 98-100% mutation
   scores, hand-rolled fakes instead of mocks, and code fixes instead of bent tests, with or
   without the skills.
+- On a larger billing module (77 mutants), both plain suites left real behavior unchecked
+  (97.4% and 98.7%); both skill arms ran the mutants, closed their gaps and reached 100% with
+  fewer tests. Two runs per arm: a direction, not a rate.
 - With the skills, agents measured their own work: they ran the audit, the mutants and the guard,
   explained the one equivalent mutant, and flagged a test edit for review with its justification.
   That took about twice the wall time.
-- So the claim is not "higher scores". It is evidence: every green suite comes with proof that it
-  can fail, and the scripts check any author's tests in CI. Harder fixtures are the next eval.
+- So the claim is evidence first: every green suite comes with proof that it can fail, gaps get
+  closed where there is headroom, and the scripts check any author's tests in CI or a hook.
 
 ## All skills
 
