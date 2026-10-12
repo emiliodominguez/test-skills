@@ -1,0 +1,62 @@
+:root {
+	color-scheme: light dark;
+	font-family: system-ui, sans-serif;
+}
+body {
+	margin: 0 auto;
+	max-width: 960px;
+	padding: 16px;
+}
+.products {
+	display: grid;
+	gap: 8px;
+	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	list-style: none;
+	padding: 0;
+}
+.products li {
+	border: 1px solid #8884;
+	border-radius: 8px;
+	padding: 12px;
+}
+table {
+	border-collapse: collapse;
+	margin-bottom: 12px;
+	width: 100%;
+}
+td,
+th {
+	padding: 4px 8px;
+	text-align: left;
+}
+input[type="number"] {
+	width: 4em;
+}
+label {
+	display: block;
+	margin-top: 8px;
+}
+.visually-hidden {
+	clip-path: inset(50%);
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+.wide {
+	width: 1400px;
+}
+.spinner {
+	animation: spin 1s linear infinite;
+	border: 3px solid #8886;
+	border-radius: 50%;
+	border-top-color: currentColor;
+	height: 24px;
+	width: 24px;
+}
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

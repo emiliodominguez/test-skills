@@ -5,3 +5,4 @@ coverage/
 
 # Bombadil run output (traces, screenshots) produced while trying skills locally
 bombadil-output/
+out/

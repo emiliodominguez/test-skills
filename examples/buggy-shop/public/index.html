@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Buggy Shop</title>
+		<link rel="stylesheet" href="/style.css" />
+		<script src="/config.js"></script>
+		<script src="/app.js" defer></script>
+	</head>
+	<body>
+		<header>
+			<h1>Buggy Shop</h1>
+			<p class="tagline">A tiny store with seeded bugs. Bombadil should find them; nobody scripted how.</p>
+		</header>
+		<main>
+			<section aria-labelledby="products-title">
+				<h2 id="products-title">Products</h2>
+				<ul id="products" class="products"></ul>
+			</section>
+			<section aria-labelledby="cart-title" class="cart">
+				<h2 id="cart-title">Cart</h2>
+				<table id="cart">
+					<thead>
+						<tr>
+							<th scope="col">Item</th>
+							<th scope="col">Qty</th>
+							<th scope="col">Line</th>
+							<th scope="col"><span class="visually-hidden">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+					<tfoot>
+						<tr>
+							<th scope="row" colspan="2">Total</th>
+							<td id="total" data-cents="0">$0.00</td>
+							<td></td>
+						</tr>
+					</tfoot>
+				</table>
+				<label for="coupon">Coupon</label>
+				<input id="coupon" type="text" autocomplete="off" />
+				<button id="apply" type="button">Apply</button>
+				<p id="coupon-message" role="status"></p>
+				<label for="note">Gift note</label>
+				<textarea id="note" rows="2"></textarea>
+				<div id="note-preview" aria-live="polite"></div>
+				<button id="checkout" type="button">Checkout</button>
+			</section>
+		</main>
+		<dialog id="confirm" aria-labelledby="confirm-title">
+			<h2 id="confirm-title">Confirm order</h2>
+			<p id="confirm-summary"></p>
+			<div id="confirm-busy" class="spinner" role="progressbar" aria-label="Placing order" hidden></div>
+			<button id="place" type="button">Place order</button>
+			<button id="cancel" type="button">Cancel</button>
+		</dialog>
+	</body>
+</html>

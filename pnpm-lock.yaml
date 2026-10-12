@@ -12,6 +12,9 @@ importers:
         specifier: ^5.4.3
         version: 5.4.3
     devDependencies:
+      '@antithesishq/bombadil':
+        specifier: 0.7.8
+        version: 0.7.8
       '@types/node':
         specifier: ^22
         version: 22.20.5
@@ -29,6 +32,10 @@ importers:
         version: 5.0.3(@types/node@22.20.5)(vite@7.3.7(@types/node@22.20.5)(tsx@4.23.15))
 
 packages:
+
+  '@antithesishq/bombadil@0.7.8':
+    resolution: {integrity: sha512-B2o5l4tUauliN8SNQOcQPXsfU0YSyZUP+3HWtHmKIvTPD4fqzEGl+7v7pEx3G5oJf8BYBckxPO0Pxves7yZfyg==}
+    hasBin: true
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -549,6 +556,8 @@ packages:
     hasBin: true
 
 snapshots:
+
+  '@antithesishq/bombadil@0.7.8': {}
 
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
