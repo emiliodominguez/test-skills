@@ -178,6 +178,7 @@ function openCheckout() {
 
 	document.getElementById("confirm-summary").textContent = `${cart.size} item(s), total ${document.getElementById("total").textContent}.`;
 	document.getElementById("confirm-busy").hidden = true;
+	for (const id of ["place", "cancel"]) document.getElementById(id).disabled = false;
 	dialog.showModal();
 }
 
@@ -186,14 +187,18 @@ function openCheckout() {
  */
 function placeOrder() {
 	const busy = document.getElementById("confirm-busy");
+	const buttons = [document.getElementById("place"), document.getElementById("cancel")];
 
 	busy.hidden = false;
+	for (const button of buttons) button.disabled = true;
 
-	// Bug "stuck-spinner": with three or more distinct items the request never settles.
+	// Bug "stuck-spinner": with three or more distinct items the request never settles, and the
+	// dialog's buttons stay disabled.
 	if (seeded("stuck-spinner") && cart.size >= 3) return;
 
 	setTimeout(function done() {
 		busy.hidden = true;
+		for (const button of buttons) button.disabled = false;
 		cart.clear();
 		renderCart();
 		document.getElementById("confirm").close();

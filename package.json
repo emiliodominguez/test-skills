@@ -26,7 +26,7 @@
 		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.kit.json",
 		"check": "pnpm run format:check && pnpm run typecheck && pnpm run validate && pnpm run test",
 		"smoke": "sh scripts/smoke-install.sh",
-		"demo": "node skills/test-bombadil/assets/bombadil-run.mjs --start \"node examples/buggy-shop/serve.mjs --kit\" --origin http://127.0.0.1:8765/ --spec examples/buggy-shop/bombadil/spec.ts --keep-going --time-limit 90s --out out/bombadil/buggy-shop",
+		"demo": "node skills/test-bombadil/assets/bombadil-run.mjs --start \"node examples/buggy-shop/serve.mjs --kit\" --origin http://127.0.0.1:8765/ --spec examples/buggy-shop/bombadil/spec.ts --keep-going --time-limit 2m --out out/bombadil/buggy-shop",
 		"demo:fixed": "node skills/test-bombadil/assets/bombadil-run.mjs --start \"node examples/buggy-shop/serve.mjs --fixed --kit\" --origin http://127.0.0.1:8765/ --spec examples/buggy-shop/bombadil/spec.ts --keep-going --time-limit 120s --out out/bombadil/buggy-shop-fixed"
 	},
 	"dependencies": {

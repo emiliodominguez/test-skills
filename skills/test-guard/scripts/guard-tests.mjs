@@ -409,7 +409,7 @@ export function guard(base) {
  * Format findings for a terminal.
  *
  * @param {ReturnType<typeof guard>} findings - Findings.
- * @param {string} base - Base revision.
+ * @param {string} base - Base revision or its label.
  * @returns {string} Report.
  */
 export function formatReport(findings, base) {
@@ -423,7 +423,7 @@ export function formatReport(findings, base) {
 		return finding.rule;
 	}))];
 
-	lines.push("", `guard-tests vs ${base.slice(0, 12)}: ${errors.length > 0 ? "WEAKENED" : "ok"} (${errors.length} errors, ${findings.length - errors.length} other)`);
+	lines.push("", `guard-tests vs ${base}: ${errors.length > 0 ? "WEAKENED" : "ok"} (${errors.length} errors, ${findings.length - errors.length} other)`);
 
 	for (const rule of rules) lines.push(`  ${rule}: ${RULES[rule].fix}`);
 
@@ -452,7 +452,9 @@ function main(argv) {
 
 	const findings = guard(base);
 
-	console.log(argv.includes("--json") ? JSON.stringify({ base, findings }, null, 2) : formatReport(findings, base));
+	const label = baseIndex === -1 ? `merge base ${base.slice(0, 12)}` : argv[baseIndex + 1];
+
+	console.log(argv.includes("--json") ? JSON.stringify({ base, findings }, null, 2) : formatReport(findings, label));
 
 	return findings.some(function isError(finding) {
 		return finding.level === "error";

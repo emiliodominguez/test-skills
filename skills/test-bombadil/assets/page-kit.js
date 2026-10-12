@@ -54,7 +54,7 @@
 	const TEST_ID = "data-testid";
 	let generation = 0;
 	let cacheGeneration = -1;
-	let cache = new WeakMap();
+	let cache = new Map();
 
 	/**
 	 * A short label from the first non-empty candidate: whitespace collapsed, digits folded to
@@ -113,34 +113,39 @@
 	}
 
 	/**
-	 * The synthesized key: base key plus the index among connected elements with the same base key.
+	 * The synthesized key: base key plus the index among connected elements of the same tag with
+	 * the same base key. Keys for a whole tag are computed in one pass and reused until the DOM
+	 * changes, so reading ids for every candidate stays linear.
 	 *
 	 * @param {Element} element - Element to key.
 	 * @returns {string} Stable key.
 	 */
 	function keyOf(element) {
 		if (cacheGeneration !== generation) {
-			cache = new WeakMap();
+			cache = new Map();
 			cacheGeneration = generation;
 		}
 
-		const cached = cache.get(element);
+		const tag = element.tagName;
+		let keys = cache.get(tag);
 
-		if (cached) return cached;
+		if (!keys) {
+			const counts = new Map();
 
-		const base = baseKey(element);
-		let index = 0;
+			keys = new WeakMap();
 
-		for (const other of document.getElementsByTagName(element.tagName)) {
-			if (other === element) break;
-			if (baseKey(other) === base) index += 1;
+			for (const other of document.getElementsByTagName(tag)) {
+				const base = baseKey(other);
+				const index = counts.get(base) ?? 0;
+
+				counts.set(base, index + 1);
+				keys.set(other, `${base}|${index}`);
+			}
+
+			cache.set(tag, keys);
 		}
 
-		const key = `${base}|${index}`;
-
-		cache.set(element, key);
-
-		return key;
+		return keys.get(element) ?? `${baseKey(element)}|detached`;
 	}
 
 	Element.prototype.getAttribute = function readAttribute(name) {
@@ -151,13 +156,16 @@
 
 	// Injection sentinels --------------------------------------------------------------------
 
-	for (const name of ["alert", "confirm", "prompt"]) {
-		const original = window[name];
+	// Native dialogs block the page; a burst of them (an injected onerror firing on every
+	// keystroke) stalls Bombadil's quiescence checks. Record the call and answer at once:
+	// alert returns, confirm accepts, prompt answers empty, as Bombadil itself would.
+	const answers = { alert: undefined, confirm: true, prompt: "" };
 
+	for (const name of Object.keys(answers)) {
 		window[name] = function guardedDialog(message) {
 			sentinel(name, message);
 
-			return original.call(window, message);
+			return answers[name];
 		};
 	}
 

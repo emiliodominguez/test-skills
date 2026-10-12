@@ -39,3 +39,24 @@ jobs:
           node-version-file: .nvmrc
       - name: Install and remove with the skills CLI
         run: sh scripts/smoke-install.sh
+
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bombadil finds the seeded bugs and stays silent on the fixed build
+        run: sh scripts/verify-demo.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bombadil-demo
+          path: out/bombadil

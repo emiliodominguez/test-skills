@@ -2,7 +2,7 @@
 // Run it with `node examples/buggy-shop/demo.mjs`.
 import { always } from "@antithesishq/bombadil";
 import { extract, weighted } from "@antithesishq/bombadil/browser";
-import { clicks, inputs, scroll } from "@antithesishq/bombadil/browser/defaults/actions";
+import { clicks, inputs, reload, scroll } from "@antithesishq/bombadil/browser/defaults/actions";
 import { hostileTyping, keyboard, shortTyping, waiting } from "../../../skills/test-bombadil-spec/assets/kit/actions.ts";
 import { minorUnits } from "../../../skills/test-bombadil-spec/assets/kit/dom.ts";
 import { settles } from "../../../skills/test-bombadil-spec/assets/kit/temporal.ts";
@@ -54,5 +54,7 @@ export const shopping = weighted([
 	[20, shortTyping],
 	[25, keyboard],
 	[10, scroll],
+	// A rare reload escapes dead states such as a stuck modal; reloads do not replay, so keep it rare.
+	[3, reload],
 	[1, waiting],
 ]);

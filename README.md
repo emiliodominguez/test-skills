@@ -1,138 +1,170 @@
 # test-skills
 
+**Tests that can fail.** Agent Skills that stop coding agents from writing tests that test
+nothing, catch them when they weaken tests to get green, and let
+[Bombadil](https://github.com/antithesishq/bombadil) find the bugs nobody wrote a test for.
+
 [![Agent Skills: spec compliant](https://img.shields.io/badge/Agent%20Skills-spec%20compliant-8250df?style=for-the-badge&labelColor=161b22&logo=bookstack&logoColor=white)](https://agentskills.io/specification)
 [![Agents: any](https://img.shields.io/badge/agents-any-0969da?style=for-the-badge&labelColor=161b22&logo=probot&logoColor=white)](https://github.com/vercel-labs/skills)
 [![Install: npx skills add](https://img.shields.io/badge/npx-skills%20add-cb3837?style=for-the-badge&labelColor=161b22&logo=npm&logoColor=white)](https://skills.sh)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639?style=for-the-badge&labelColor=161b22&logo=opensourceinitiative&logoColor=white)](LICENSE)
 
-**test-skills** is a set of [Agent Skills](https://agentskills.io) for testing applications:
-choosing what to test, writing tests that fail for the right reasons, exploring a UI with
-[Bombadil](https://github.com/antithesishq/bombadil) and triaging what the runs find.
-
-Each skill is a plain `SKILL.md` folder that works in any agent supporting the open
-specification. Descriptions stay in context; detailed guidance and references load when needed.
-
-## Quick start
-
 ```sh
 npx skills add emiliodominguez/test-skills
 ```
 
-Pick your skills and agents in the installer, then give your agent a task:
+## The problem
 
-```text
-test-bombadil Set up Bombadil for this app. Run the defaults headless for two minutes,
-fix anything that makes them fail on a healthy build, and report the commands.
-```
+Your agent says the suite is green. That claim is cheap:
 
-<sub>Requires Node.js 22.20.0+ for the <a href="https://github.com/vercel-labs/skills">skills CLI</a>.</sub>
+- **Agents over-mock.** In agent-authored commits, 36% of test commits add mocks, against 26%
+  for humans, and agents reach for plain mocks 95% of the time
+  ([MSR 2026](https://arxiv.org/abs/2602.00409v1)).
+- **Coverage lies.** LLM-written tests on a large industrial codebase reached a 25.2% mutation
+  score: most of the lines they "covered" could be broken without a single failure
+  ([ESEM 2026](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ESEM.2026.95)).
+- **Tests get bent to pass.** Developers report agents rewriting a failing test so that the wrong
+  result counts as a pass ([HN](https://news.ycombinator.com/item?id=43307809)), and calling a
+  failure "preexisting" to move on ([HN](https://news.ycombinator.com/item?id=47660925)).
+- **Nobody scripts the weird paths.** End-to-end tests check the flows someone wrote down. The
+  bugs live in the ones nobody did.
 
-## The skills
+## What you get
 
-| Stage       | Skill                                                      | What moves forward                                                                        |
-| ----------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **Plan**    | [`test-strategy`](skills/test-strategy/SKILL.md)           | A risk table: layer, oracle and cadence per risk, plus a maintenance contract.            |
-| **Author**  | [`test-unit`](skills/test-unit/SKILL.md)                   | High-signal unit and in-process flow tests on the pure core, no mocks of the unit.        |
-| **Author**  | [`test-e2e`](skills/test-e2e/SKILL.md)                     | Scripted tours of critical paths: isolated, fenced, semantic locators, no blind retries.  |
-| **Author**  | [`test-policy`](skills/test-policy/SKILL.md)               | Repository-reading tests for conventions: boundaries, i18n parity, docs, banned patterns. |
-| **Author**  | [`test-security`](skills/test-security/SKILL.md)           | Schema-driven hostile input and an authorization matrix over every procedure.             |
-| **Explore** | [`test-bombadil`](skills/test-bombadil/SKILL.md)           | Bombadil installed, harnessed and run on a cadence, with replayable traces.               |
-| **Author**  | [`test-bombadil-spec`](skills/test-bombadil-spec/SKILL.md) | Bombadil properties and replayable action generators.                                     |
-| **Triage**  | [`test-findings`](skills/test-findings/SKILL.md)           | Reproduced, confirmed, shrunk and classified findings, pinned by regression tests.        |
+| Failure mode                                                                             | Skill                                                                                                        | Bundled tool                         |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Tests that cannot fail: no assertions, tautologies, mocks of the unit, `.only`, sleeps   | [`test-audit`](skills/test-audit/SKILL.md)                                                                   | `audit-tests.mjs` + a mutation check |
+| Tests weakened to get green: deleted, skipped, loosened, re-recorded, thresholds lowered | [`test-guard`](skills/test-guard/SKILL.md)                                                                   | `guard-tests.mjs`                    |
+| "Just add a retry"                                                                       | [`test-flaky`](skills/test-flaky/SKILL.md)                                                                   | `repeat.mjs`                         |
+| Bugs on paths nobody scripted                                                            | [`test-bombadil`](skills/test-bombadil/SKILL.md), [`test-bombadil-spec`](skills/test-bombadil-spec/SKILL.md) | runner, page kit, typed property kit |
+| Assertions stuck on one path                                                             | [`test-e2e-to-bombadil`](skills/test-e2e-to-bombadil/SKILL.md)                                               |                                      |
+| Examples that miss edge cases                                                            | [`test-properties`](skills/test-properties/SKILL.md)                                                         |                                      |
+| Findings nobody can reproduce                                                            | [`test-findings`](skills/test-findings/SKILL.md)                                                             | replay, confirm, shrink              |
 
-Scripted tours prove the paths you know; property-based exploration checks invariants on the
-paths nobody wrote down. The suite treats them as complementary layers.
+The scripts have zero dependencies and run without an agent too, in CI or a pre-commit hook.
 
-```mermaid
-flowchart LR
-	strategy[test-strategy] --> unit[test-unit]
-	strategy --> e2e[test-e2e]
-	strategy --> policy[test-policy]
-	strategy --> security[test-security]
-	strategy --> bombadil[test-bombadil]
-	bombadil --> spec[test-bombadil-spec]
-	spec --> bombadil
-	bombadil --> findings[test-findings]
-	e2e --> findings
-	security --> findings
-	findings --> spec
-	findings --> unit
-```
+## See it find bugs
 
-<details>
-<summary><strong>Copy a prompt and try it</strong></summary>
-
-**Map risks to layers**
-
-```text
-test-strategy Audit this repository's tests. List the risks they miss, the layer and oracle
-for each, and what runs on every change versus on a schedule.
-```
-
-**Write a property**
-
-```text
-test-bombadil-spec Add a property that the cart total equals the sum of its lines, and a
-generator that can finish checkout. Run the spec for five minutes and show it reached the cart.
-```
-
-**Triage a violation**
-
-```text
-test-findings Bombadil reported cartTotalAddsUp was violated in out/bombadil/checkout.
-Reproduce it, shrink it, and tell me whether the app or the property is wrong.
-```
-
-</details>
-
-## Profiles
-
-Install a focused slice, or combine profiles. Membership lives in [`profiles.json`](profiles.json).
-
-| Profile     | Skills                                      |
-| ----------- | ------------------------------------------- |
-| `core`      | strategy, unit, e2e, findings               |
-| `bombadil`  | strategy, bombadil, bombadil-spec, findings |
-| `hardening` | policy, security, findings                  |
+[`examples/buggy-shop`](examples/buggy-shop) is a four-product store with six seeded bugs. Its
+specification is the bundled property kit plus two domain properties. There are no scripted
+paths and no selectors for the bugs.
 
 ```sh
-./install.sh --profile bombadil -- -a <agent> -y
+git clone https://github.com/emiliodominguez/test-skills && cd test-skills
+pnpm install && pnpm demo
 ```
 
-<details>
-<summary><strong>Install options</strong></summary>
+One two-minute run (long typed strings shortened):
 
-| Goal                                | Command                                                                               |
-| ----------------------------------- | ------------------------------------------------------------------------------------- |
-| Pick skills and agents in a prompt  | `npx skills add emiliodominguez/test-skills`                                          |
-| Install for your user, not the repo | `npx skills add emiliodominguez/test-skills -g -a <agent> -y`                         |
-| Install specific skills             | `npx skills add emiliodominguez/test-skills --skill test-bombadil test-bombadil-spec` |
-| See what is available               | `npx skills add emiliodominguez/test-skills --list`                                   |
-| Update or remove later              | `npx skills update` / `npx skills remove`                                             |
+```text
+| Property               | Verdict | Count | First step | After                                      |
+| ---------------------- | ------- | ----: | ---------: | ------------------------------------------ |
+| injectedTextStaysInert | stop    |   294 |         11 | type "\"><svg id=bmbxss onload=alert(1)>"  |
+| noBrokenValues         | stop    |    97 |         74 | type "--3"                                 |
+| emptyCartIsFree        | stop    |    58 |         37 | Click "button||Remove Stoneware mug|0"     |
+| noDuplicateIds         | stop    |    40 |        101 | type "<a id=bmbxss href=javascript:..."    |
+| noUncaughtExceptions   | stop    |    28 |         38 | Click "button||Apply|0"                    |
+| cartTotalAddsUp        | stop    |    16 |         25 | type "=]7oi&~u@Mr*$..."                    |
+| escapeClosesDialogs    | stop    |     8 |        287 | key 27                                     |
+```
 
-From a clone, the wrappers accept profiles and pass everything after `--` to `npx skills`:
+Exploration is random: a single two-minute run usually finds five or six of the six seeded bugs,
+and the stuck checkout spinner shows up within a few runs. Then `pnpm demo:fixed` serves the same
+app with the bugs off and the same spec stays silent (about 850 states, exit 0). CI runs both on
+every change.
+
+**It found a bug we did not plant.** The first "fixed" build still failed `cartTotalAddsUp`:
+Bombadil typed a huge quantity, the line amount overflowed JavaScript's safe integers, and the
+total stopped matching its lines. No one had written that test. The property did not need anyone to.
+
+## Catch a weakened test
+
+```text
+$ node skills/test-guard/scripts/guard-tests.mjs --base main
+error  added-skip           src/cart.test.ts  0 -> 1 skip markers
+warn   changed-expectation  src/cart.test.ts  expect(total([1, 2])): .toBe(3) -> .toBe(4)
+error  deleted-test-file    src/legacy.test.ts  2 tests deleted
+error  lowered-threshold    vitest.config.ts  lines: 80 -> 60
+error  added-retries        vitest.config.ts  retries 0 -> 3
+
+guard-tests vs main: WEAKENED (4 errors, 1 other)
+```
+
+Run it at the end of every agent session, as a pre-commit hook, or in CI against the target branch.
+
+## All skills
+
+| Stage   | Skill                                                          | What moves forward                                                            |
+| ------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Plan    | [`test-strategy`](skills/test-strategy/SKILL.md)               | A risk table: layer, oracle and cadence per risk, plus a maintenance contract |
+| Author  | [`test-unit`](skills/test-unit/SKILL.md)                       | High-signal tests on the pure core; no mocks of the unit                      |
+| Author  | [`test-properties`](skills/test-properties/SKILL.md)           | Property-based and model-based tests with shrinking                           |
+| Author  | [`test-e2e`](skills/test-e2e/SKILL.md)                         | Scripted tours: isolated, fenced, semantic locators, no blind retries         |
+| Author  | [`test-policy`](skills/test-policy/SKILL.md)                   | Repository-reading tests for conventions                                      |
+| Author  | [`test-security`](skills/test-security/SKILL.md)               | Authorization matrix and schema-driven hostile input over every procedure     |
+| Author  | [`test-bombadil-spec`](skills/test-bombadil-spec/SKILL.md)     | Bombadil properties and replayable action generators                          |
+| Author  | [`test-e2e-to-bombadil`](skills/test-e2e-to-bombadil/SKILL.md) | Scripted assertions lifted into properties that hold on every path            |
+| Explore | [`test-bombadil`](skills/test-bombadil/SKILL.md)               | Bombadil installed, harnessed and run on a cadence, with replayable traces    |
+| Triage  | [`test-audit`](skills/test-audit/SKILL.md)                     | Tests that cannot fail, found; the rest proven by mutants                     |
+| Triage  | [`test-guard`](skills/test-guard/SKILL.md)                     | A change checked for deleted, skipped and bent tests                          |
+| Triage  | [`test-flaky`](skills/test-flaky/SKILL.md)                     | A measured failure rate, a named source and a proven fix                      |
+| Triage  | [`test-findings`](skills/test-findings/SKILL.md)               | Findings reproduced, shrunk, classified and pinned by regression tests        |
+
+Prompts to try:
+
+```text
+test-audit The agent added 30 tests in this branch. Find the ones that cannot fail,
+then mutate the pricing code and tell me which mutants survive.
+
+test-bombadil Set up Bombadil for this app with the bundled runner and page kit.
+Run the defaults for two minutes and fix anything that fails on a healthy build.
+
+test-e2e-to-bombadil Read our Playwright suite and lift every assertion that is really a rule
+into a Bombadil property. Keep path facts in the scripts.
+```
+
+## Install
 
 ```sh
-./install.sh --project -- -a <agent> -y   # current project, one agent
-./install.sh --local -- -a <agent> -y     # install from your clone
-./uninstall.sh --dry-run                  # preview removal of every test-* skill
-./uninstall.sh --profile hardening        # remove one profile
+npx skills add emiliodominguez/test-skills                                  # pick skills and agents
+npx skills add emiliodominguez/test-skills -g -a <agent> -y                 # user scope, no prompts
+npx skills add emiliodominguez/test-skills --skill test-audit test-guard    # just some skills
 ```
 
-For global installs, pass an explicit `-a` list: automatic agent selection can include agents
-that only support project installs.
+Profiles, from a clone (membership in [`profiles.json`](profiles.json)):
 
-The `.claude-plugin/` folder is an optional marketplace channel; `npx skills` is the recommended
-install path.
+| Profile     | Skills                                                       |
+| ----------- | ------------------------------------------------------------ |
+| `honesty`   | audit, guard, flaky                                          |
+| `bombadil`  | strategy, bombadil, bombadil-spec, e2e-to-bombadil, findings |
+| `core`      | strategy, unit, e2e, audit, guard, flaky, findings           |
+| `hardening` | policy, security, properties, findings                       |
 
-</details>
+```sh
+./install.sh --profile honesty -- -a <agent> -y
+./uninstall.sh --dry-run
+```
 
-## Tools
+For global installs, pass an explicit `-a` list. The `.claude-plugin/` folder is an optional
+marketplace channel; `npx skills` is the recommended path. Requires Node.js 22.20+.
 
-The skills name testing tools where the tool is the point (Bombadil, axe-core) and stay neutral
-elsewhere, describing runners and frameworks by category. They name no agent host or model.
-Bombadil guidance targets 0.7.x; see the
-[gotchas](skills/test-bombadil/references/gotchas.md) before upgrading.
+## How it is verified
+
+- `pnpm check`: formatting, types (the property kit is type-checked against Bombadil 0.7.8),
+  skill validation and tests for every bundled script.
+- `scripts/verify-demo.sh` in CI: the demo must find the seeded bugs and stay silent when fixed.
+- `scripts/smoke-install.sh`: a real `npx skills` install and removal for several agents.
+- The test audit reports no findings on a 199-file production suite it was not written for.
+
+Skills name testing tools where the tool is the point and stay neutral elsewhere. They name no
+agent host or model. Bombadil guidance targets 0.7.x; see the
+[gotchas](skills/test-bombadil/references/gotchas.md) found while verifying it.
+
+## Credits
+
+[Bombadil](https://github.com/antithesishq/bombadil) is built by Antithesis. For property-based
+testing across more languages and tools, see also
+[trailofbits/skills](https://github.com/trailofbits/skills).
 
 ## Contributing
 
@@ -141,9 +173,4 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-The gate checks formatting, types, skill validation and tests. See [CONTRIBUTING.md](CONTRIBUTING.md)
-and [authoring](docs/AUTHORING.md).
-
-## License
-
-[MIT](LICENSE)
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [authoring](docs/AUTHORING.md). MIT [license](LICENSE).

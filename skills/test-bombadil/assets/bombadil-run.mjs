@@ -320,13 +320,14 @@ function stopProcess(child) {
  * @param {string[]} args - Arguments.
  * @param {NodeJS.ProcessEnv} env - Environment.
  * @param {number} silenceMs - Allowed silence.
- * @returns {Promise<{ code: number, log: string }>} Exit code and captured output.
+ * @returns {Promise<{ code: number, log: string, stalled: boolean }>} Exit code, captured output and whether the watchdog fired.
  */
 function runBombadil(binary, args, env, silenceMs) {
 	return new Promise(function execute(done) {
 		const child = spawn(binary, args, { env, stdio: ["ignore", "pipe", "pipe"] });
 		let log = "";
 		let timer;
+		let stalled = false;
 
 		/**
 		 * Restart the silence timer.
@@ -334,6 +335,7 @@ function runBombadil(binary, args, env, silenceMs) {
 		function arm() {
 			clearTimeout(timer);
 			timer = setTimeout(function stall() {
+				stalled = true;
 				process.stderr.write(`\nwatchdog: no output for ${silenceMs / 1000}s, stopping Bombadil\n`);
 				child.kill("SIGINT");
 				setTimeout(function force() {
@@ -359,7 +361,7 @@ function runBombadil(binary, args, env, silenceMs) {
 		child.stderr.on("data", forward);
 		child.on("close", function closed(code) {
 			clearTimeout(timer);
-			done({ code: code ?? 1, log });
+			done({ code: code ?? 1, log, stalled });
 		});
 		arm();
 	});
@@ -444,13 +446,19 @@ async function main(argv) {
 		writeFileSync(join(output, "summary.md"), summary);
 		console.log(`\n${summary}`);
 
+		const failing = verdicts.some(function fails(finding) {
+			return finding.verdict === "stop";
+		});
+
+		// A stalled run keeps the findings it recorded before the watchdog stopped it.
+		if (result.stalled) {
+			process.stderr.write("The watchdog stopped a stalled run; findings recorded before the stall are kept.\n");
+			return failing ? VIOLATED : 1;
+		}
+
 		if (result.code !== 0 && result.code !== VIOLATED) return 1;
 
-		return verdicts.some(function fails(finding) {
-			return finding.verdict === "stop";
-		})
-			? VIOLATED
-			: 0;
+		return failing ? VIOLATED : 0;
 	} finally {
 		if (server) stopProcess(server);
 	}
