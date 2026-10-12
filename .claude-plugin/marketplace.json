@@ -7,7 +7,7 @@
 	"plugins": [
 		{
 			"name": "test-skills",
-			"description": "Portable, agent-agnostic testing skills: strategy, unit, end-to-end, policy, security, Bombadil exploration and finding triage.",
+			"description": "Tests that can fail: audit and guard agent-written tests, mutation checks, flakiness, Bombadil exploration and finding triage.",
 			"source": "./",
 			"category": "development"
 		}

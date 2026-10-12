@@ -92,6 +92,20 @@ guard-tests vs main: WEAKENED (4 errors, 1 other)
 
 Run it at the end of every agent session, as a pre-commit hook, or in CI against the target branch.
 
+## What we measured
+
+We gave fresh agents the same tasks with and without the skills, two replicates each, and scored
+their suites with the bundled mutation tester ([full results](evals/results/2026-10-12-agent-tests.md)).
+
+- On small, clearly specified modules the model already wrote strong tests: 98-100% mutation
+  scores, hand-rolled fakes instead of mocks, and code fixes instead of bent tests, with or
+  without the skills.
+- With the skills, agents measured their own work: they ran the audit, the mutants and the guard,
+  explained the one equivalent mutant, and flagged a test edit for review with its justification.
+  That took about twice the wall time.
+- So the claim is not "higher scores". It is evidence: every green suite comes with proof that it
+  can fail, and the scripts check any author's tests in CI. Harder fixtures are the next eval.
+
 ## All skills
 
 | Stage   | Skill                                                          | What moves forward                                                            |

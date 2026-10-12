@@ -1,13 +1,13 @@
 {
 	"name": "test-skills",
 	"displayName": "Test Skills",
-	"description": "Portable, agent-agnostic testing skills: strategy, unit, end-to-end, policy, security, Bombadil exploration and finding triage.",
-	"version": "0.1.0",
+	"description": "Tests that can fail: audit and guard agent-written tests, mutation checks, flakiness, Bombadil exploration and finding triage.",
+	"version": "0.2.0",
 	"author": {
 		"name": "Emilio Dominguez"
 	},
 	"homepage": "https://github.com/emiliodominguez/test-skills",
 	"repository": "https://github.com/emiliodominguez/test-skills",
 	"license": "MIT",
-	"keywords": ["agent-skills", "skills", "testing", "property-based-testing", "bombadil", "e2e"]
+	"keywords": ["agent-skills", "bombadil", "e2e", "mutation-testing", "property-based-testing", "skills", "test-quality", "testing"]
 }

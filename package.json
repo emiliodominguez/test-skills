@@ -1,8 +1,8 @@
 {
 	"name": "test-skills",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
-	"description": "Portable, agent-agnostic testing skills for AI coding agents: strategy, property-based UI exploration with Bombadil, end-to-end, unit, flakiness and CI. Install with npx skills.",
+	"description": "Agent Skills for tests that can fail: audit and guard agent-written tests, measure flakiness, mutation-check suites, and explore UIs with Bombadil. Install with npx skills.",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/emiliodominguez/test-skills.git"
@@ -42,14 +42,19 @@
 	},
 	"keywords": [
 		"agent-skills",
-		"skills",
 		"ai-agents",
-		"coding-agents",
-		"testing",
-		"property-based-testing",
+		"ai-generated-tests",
+		"antithesis",
 		"bombadil",
+		"coding-agents",
 		"e2e",
-		"flaky-tests"
+		"flaky-tests",
+		"fuzzing",
+		"mutation-testing",
+		"property-based-testing",
+		"skills",
+		"test-quality",
+		"testing"
 	],
 	"license": "MIT"
 }
