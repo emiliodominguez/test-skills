@@ -11,14 +11,14 @@ What to post, where, and the claims each post can back with something a reader c
 
 ## Claims and their evidence
 
-| Claim                                                                                                               | Reproduce                                                                               |
-| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Bombadil finds the seeded bugs in a demo store with no scripted paths, and stays silent when fixed                  | `pnpm demo`, `pnpm demo:fixed`, `scripts/verify-demo.sh`, `pnpm verify`                 |
-| It found a bug nobody planted (safe-integer overflow)                                                               | `examples/buggy-shop/README.md`, `qty-overflow`                                         |
-| The guard catches deleted, skipped and bent tests                                                                   | `node skills/test-guard/scripts/guard-tests.mjs` in a repository after weakening a test |
-| The audit has no false positives on a 199-file production suite                                                     | Run `audit-tests.mjs` on any well-maintained suite and compare                          |
-| On small fixtures a frontier model already writes strong tests; the skills add measured evidence, not higher scores | `evals/results/2026-10-12-agent-tests.md`                                               |
-| First Agent Skills for Bombadil                                                                                     | No other Bombadil skill or server found on skills.sh or GitHub at launch                |
+| Claim                                                                                                                                                 | Reproduce                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Bombadil finds the seeded bugs in a demo store with no scripted paths, and stays silent when fixed                                                    | `pnpm demo`, `pnpm demo:fixed`, `scripts/verify-demo.sh`, `pnpm verify`                 |
+| It found a bug nobody planted (safe-integer overflow)                                                                                                 | `examples/buggy-shop/README.md`, `qty-overflow`                                         |
+| The guard catches deleted, skipped and bent tests                                                                                                     | `node skills/test-guard/scripts/guard-tests.mjs` in a repository after weakening a test |
+| The audit has no false positives on a 199-file production suite                                                                                       | Run `audit-tests.mjs` on any well-maintained suite and compare                          |
+| On small fixtures a frontier model already writes strong tests; on a 77-mutant module the skill arms closed the gaps plain arms left (100% vs 97-99%) | `evals/results/2026-10-12-agent-tests.md`                                               |
+| First Agent Skills for Bombadil                                                                                                                       | No other Bombadil skill or server found on skills.sh or GitHub at launch                |
 
 ## Channels
 
@@ -26,7 +26,7 @@ What to post, where, and the claims each post can back with something a reader c
    First comment: the problem in three lines, the demo table, the guard output, the eval table,
    and what it does not do.
 2. **X / Bluesky thread.** Post 1: the guard output on an agent-weakened test. Post 2: the demo
-   table. Post 3: "it found a bug we did not plant". Post 4: the honest eval (no score gain on easy fixtures, more evidence). Post 5: install
+   table. Post 3: "it found a bug we did not plant". Post 4: the honest eval (no gain on easy fixtures, gaps closed on the harder one). Post 5: install
    line. Mention the Bombadil maintainers and Antithesis; the repository is the first set of
    agent skills for their tool and links back to it.
 3. **skills.sh.** Installs drive the leaderboard; ask early users to install with `npx skills add`.
