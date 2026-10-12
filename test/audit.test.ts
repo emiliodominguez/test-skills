@@ -130,3 +130,13 @@ describe("configs and helpers", function helpers() {
 		expect(maskJs(source).split("\n")).toHaveLength(2);
 	});
 });
+
+describe("regular expressions in tests", function regexSuite() {
+	test("a quote inside a regex does not hide a later focused test", function quoteInRegex() {
+		expect(rulesOf(auditJs("parse.test.ts", 'const q = /"/u; it.only("parses", () => { expect(parse("a")).toBe(1); });'))).toContain("focused");
+	});
+
+	test("an it.only inside a regex is not a finding", function onlyInRegex() {
+		expect(auditJs("parse.test.ts", 'test("matches", () => { expect(/ it.only(/u.test(src)).toBe(true); });')).toEqual([]);
+	});
+});

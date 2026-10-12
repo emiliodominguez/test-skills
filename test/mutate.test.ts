@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
-import { applyMutant, generateMutants, mask, parseArgs, sample } from "../skills/test-audit/scripts/mutate.mjs";
+import { applyMutant, generateMutants, mask, parseArgs, regexLiteralEnd, sample } from "../skills/test-audit/scripts/mutate.mjs";
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills/test-audit/scripts/mutate.mjs");
 const temporary: string[] = [];
@@ -133,5 +133,27 @@ describe("the mutation script", function script() {
 
 		expect(report).toMatchObject({ score: 100, survived: [] });
 		expect(fs.readFileSync(path.join(dir, "pricing.mjs"), "utf8")).toBe(pricing);
+	});
+});
+
+describe("regular expression literals", function regexSuite() {
+	test("are masked, so their contents are never mutated", function masked() {
+		const mutants = generateMutants('if (/[1-9]"/u.test(x) && y > 1) z = a / 2;\n', { python: false });
+
+		expect(
+			mutants.map(function describe(mutant: { operator: string; replacement: string }) {
+				return `${mutant.operator}:${mutant.replacement}`;
+			}),
+		).toEqual(["logical:||", "boundary:>=", "constant:2", "arithmetic:*", "constant:3"]);
+	});
+
+	test.each([
+		["after an operator", "x = /a/g;", true],
+		["after return", "return /a/;", true],
+		["after an identifier (division)", "x = a / b / c;", false],
+		["after a closing parenthesis (division)", "x = (a) / 2;", false],
+		["across a line break (not a regex)", "x = a\n/ b;", false],
+	])("regexLiteralEnd %s", function detects(_label, source, isRegex) {
+		expect(regexLiteralEnd(source, source.indexOf("/")) !== -1).toBe(isRegex);
 	});
 });

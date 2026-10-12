@@ -24,8 +24,62 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+/** Characters after which a slash starts a regular expression literal rather than a division. */
+const REGEX_PRECEDERS = new Set(["(", ",", "=", ":", "[", "!", "&", "|", "?", "{", "}", ";", "+", "-", "*", "%", "<", ">", "~", "^"]);
+
+/** Keywords after which a slash starts a regular expression literal. */
+const REGEX_KEYWORDS = new Set(["return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw", "yield", "await"]);
+
 /**
- * Replace comment and string contents with spaces, keeping offsets and line breaks.
+ * End offset (exclusive, after any flags) of a regular expression literal starting at `start`,
+ * or -1 when the slash is a division operator.
+ *
+ * @param {string} source - Source text.
+ * @param {number} start - Offset of the opening slash.
+ * @returns {number} End offset, or -1.
+ */
+export function regexLiteralEnd(source, start) {
+	let before = start - 1;
+
+	while (before >= 0 && /\s/u.test(source[before])) before -= 1;
+
+	if (before >= 0) {
+		const previous = source[before];
+
+		if (/[\w$]/u.test(previous)) {
+			let wordStart = before;
+
+			while (wordStart > 0 && /[\w$]/u.test(source[wordStart - 1])) wordStart -= 1;
+			if (!REGEX_KEYWORDS.has(source.slice(wordStart, before + 1))) return -1;
+		} else if (!REGEX_PRECEDERS.has(previous)) {
+			return -1;
+		}
+	}
+
+	let inClass = false;
+
+	for (let at = start + 1; at < source.length; at += 1) {
+		const char = source[at];
+
+		if (char === "\\") at += 1;
+		else if (char === "\n") return -1;
+		else if (char === "[") inClass = true;
+		else if (char === "]") inClass = false;
+		else if (char === "/" && !inClass) {
+			let end = at + 1;
+
+			while (end < source.length && /[a-z]/u.test(source[end])) end += 1;
+
+			return end;
+		}
+	}
+
+	return -1;
+}
+
+/**
+ * Replace comment, string and regular expression contents with spaces, keeping offsets and line
+ * breaks.
  *
  * @param {string} source - Source text.
  * @param {boolean} python - Whether to use Python comment and string rules.
@@ -68,6 +122,11 @@ export function mask(source, python) {
 
 			blank(index, stop);
 			index = stop;
+		} else if (!python && char === "/" && regexLiteralEnd(source, index) !== -1) {
+			const end = regexLiteralEnd(source, index);
+
+			blank(index + 1, end);
+			index = end;
 		} else if (char === '"' || char === "'" || (!python && char === "`")) {
 			let at = index + 1;
 
