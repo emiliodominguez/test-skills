@@ -66,7 +66,7 @@ describe("applyPolicy", function policySuite() {
 	});
 
 	test("an expired known finding fails again", function expires() {
-		expect(applyPolicy(findings, policy, "2027-01-01")[1].verdict).toBe("stop");
+		expect(applyPolicy(findings, policy, "2027-01-01")[0]?.verdict).toBe("stop");
 	});
 });
 
