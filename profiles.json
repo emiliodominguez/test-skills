@@ -1,0 +1,7 @@
+{
+	"profiles": {
+		"core": ["test-strategy", "test-unit", "test-e2e", "test-findings"],
+		"bombadil": ["test-strategy", "test-bombadil", "test-bombadil-spec", "test-findings"],
+		"hardening": ["test-policy", "test-security", "test-findings"]
+	}
+}

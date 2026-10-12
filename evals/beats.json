@@ -1,0 +1,13 @@
+{
+	"$comment": "Short lowercase substrings each SKILL.md must keep. They catch accidental wording loss, not behavior.",
+	"skills": {
+		"test-strategy": ["assign a layer per risk", "pick the oracle", "split measuring from deciding", "maintenance contract"],
+		"test-unit": ["collect offenders, expect empty", "seed once, clone per test", "real-protocol fakes", "exhaustiveness at compile time"],
+		"test-e2e": ["fence side effects", "wait on observable readiness", "prove it bites", "no blind retries"],
+		"test-policy": ["collect offenders", "allowlists explicit", "assert the scanned set is non-empty", "compiler api"],
+		"test-security": ["authorization matrix", "hostile variants", "replay safety", "golden updates are security reviews"],
+		"test-bombadil": ["exit codes", "test-external", "build the harness", "watchdog"],
+		"test-bombadil-spec": ["extract", "settles", "\"wait\"", "keep-going on a correct app"],
+		"test-findings": ["reproduce on a fresh environment", "shrink", "classify", "expiry date"]
+	}
+}

@@ -69,7 +69,7 @@ export const WEASEL_WORDS = ["simply", "basically", "effortlessly", "trivially",
 export const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Testing stages, in workflow order. Each skill declares one as `metadata.stage`. */
-export const STAGES = ["plan", "author", "explore", "run", "triage"] as const;
+export const STAGES = ["plan", "author", "explore", "triage"] as const;
 
 /** A testing stage from {@link STAGES}. */
 export type Stage = (typeof STAGES)[number];
