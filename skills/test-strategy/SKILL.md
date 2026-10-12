@@ -23,11 +23,14 @@ result correct. A strategy is a table of risks, not a pyramid quota.
    | Risk | Layer | Skill |
    | --- | --- | --- |
    | Pure rules, parsing, arithmetic, state transitions | Unit tests on the pure core, table-driven | `test-unit` |
+   | Wide input spaces: parsers, money, dates, serializers | Property-based tests with shrinking | `test-properties` |
    | A boundary rejects bad input; failures map to the right response | Unit or in-process flow tests | `test-unit` |
    | A critical path someone can write down | Scripted end-to-end tour | `test-e2e` |
    | Invariants on paths nobody wrote down | Property-based UI exploration | `test-bombadil` |
    | Architecture, i18n, docs and naming conventions | Repository-reading policy tests | `test-policy` |
    | Authorization, hostile payloads, renderer hardening | Schema-driven security tests | `test-security` |
+   | Tests that cannot fail, or were weakened by a change | Static audit, mutants and a diff guard | `test-audit`, `test-guard` |
+   | Intermittent failures | Measured repetition and a named source | `test-flaky` |
 
    Scripted tours and exploration are complementary: tours prove the paths you know, exploration
    checks invariants on the paths you did not think of. Neither replaces the other.

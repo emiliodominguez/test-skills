@@ -29,7 +29,7 @@ regression test or a corrected property, with the evidence that decided it.
      renamed hook, a threshold below normal behavior). Name how to tighten it.
    - **Harness problem:** settling, ids, fences, watchdog, fixture. Fix the harness, not the app.
    - **Nondeterminism in a test:** shared state, clock, randomness, ordering, network,
-     concurrency, cleanup. Fix the source; never add a blind retry.
+     concurrency, cleanup. Fix the source; never add a blind retry (see `test-flaky`).
 6. **Pin it.** A bug gets a deterministic regression test at the lowest layer that shows it
    (often a unit or flow test), shown failing before the fix. A corrected property gets a silent
    covering run on the fixed app.

@@ -92,6 +92,59 @@
 				"The fuzzer found a crash; reproduce it and add a regression test."
 			],
 			"near": ["Write new Bombadil properties for the reports screen.", "Plan which tests we need.", "Set up nightly Bombadil campaigns."]
+		},
+		"test-audit": {
+			"should": [
+				"The agent wrote 40 tests and coverage is 95%, but do they actually test anything?",
+				"Check our test suite for tests without assertions or that mock the thing they test.",
+				"Find tautological tests like expect(true).toBe(true) in this repo.",
+				"Mutation-check the tests for the pricing module."
+			],
+			"near": [
+				"The agent deleted some tests in this branch; check the diff.",
+				"This test fails randomly in CI.",
+				"Write unit tests for the pricing module."
+			]
+		},
+		"test-guard": {
+			"should": [
+				"Before I commit, make sure you didn't skip, delete or weaken any tests.",
+				"Check this branch for tests that were changed to make them pass.",
+				"Did the agent lower the coverage threshold or add retries in this PR?",
+				"Add a CI check that fails when tests get weakened."
+			],
+			"near": ["Audit the whole suite for assertion-less tests.", "Fix the flaky checkout test.", "Plan which tests this feature needs."]
+		},
+		"test-flaky": {
+			"should": [
+				"This test fails one in twenty runs; find out why.",
+				"Our Playwright tests pass locally but fail in CI sometimes.",
+				"The test passes on retry; can we fix it properly?",
+				"Measure how flaky the payments test file is."
+			],
+			"near": ["Bombadil found a violation; is it real?", "Check the branch for skipped tests.", "Write an end-to-end test for login."]
+		},
+		"test-properties": {
+			"should": [
+				"Add property-based tests for the money parser.",
+				"Use fast-check to test the date range serializer.",
+				"Write Hypothesis tests for the discount calculator.",
+				"Test the cart reducer with random command sequences against a model."
+			],
+			"near": [
+				"Write Bombadil properties for the checkout page.",
+				"Add example-based unit tests for the parser.",
+				"Find assertion-less tests in the suite."
+			]
+		},
+		"test-e2e-to-bombadil": {
+			"should": [
+				"Turn our Playwright tests into Bombadil properties.",
+				"We have Cypress tests; can Bombadil reuse what they check?",
+				"Convert the checkout e2e assertions into invariants for exploration.",
+				"Which of our e2e assertions should become Bombadil properties?"
+			],
+			"near": ["Write a new Playwright test for checkout.", "Install Bombadil and run it in CI.", "Fix the flaky Playwright test."]
 		}
 	}
 }

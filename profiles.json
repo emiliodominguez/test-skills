@@ -1,7 +1,8 @@
 {
 	"profiles": {
-		"core": ["test-strategy", "test-unit", "test-e2e", "test-findings"],
-		"bombadil": ["test-strategy", "test-bombadil", "test-bombadil-spec", "test-findings"],
-		"hardening": ["test-policy", "test-security", "test-findings"]
+		"core": ["test-strategy", "test-unit", "test-e2e", "test-audit", "test-guard", "test-flaky", "test-findings"],
+		"bombadil": ["test-strategy", "test-bombadil", "test-bombadil-spec", "test-e2e-to-bombadil", "test-findings"],
+		"honesty": ["test-audit", "test-guard", "test-flaky"],
+		"hardening": ["test-policy", "test-security", "test-properties", "test-findings"]
 	}
 }
