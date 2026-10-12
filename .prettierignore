@@ -1,0 +1,5 @@
+node_modules/
+coverage/
+pnpm-lock.yaml
+# Skills are authored prose - don't let Prettier reflow intentional layout.
+skills/
