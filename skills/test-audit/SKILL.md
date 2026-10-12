@@ -61,7 +61,8 @@ then prove the remaining ones can, by breaking the code on purpose.
 
    Point it at the files the change touched and a fast, focused test command; each mutant is a
    full run. It edits the file in place and always restores it, so it needs write access to the
-   workspace; the scanner and the guard only read. If the repository already has a mutation tool
+   workspace; the scanner and the guard only read. If a timeout kills it outright, the next run
+   restores the file from `<file>.mutate-backup.json` before starting. If the repository already has a mutation tool
    configured (for example Stryker, mutmut or go-mutesting), use that instead and report its
    score with the surviving mutants.
 4. **Report.** Group by severity: tests that cannot fail, tests that check mocks, surviving

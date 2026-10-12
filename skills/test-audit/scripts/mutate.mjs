@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Zero-dependency mutation testing for one source file: apply small faults one at a time (flip a
 // comparison, swap && and ||, change a constant, drop a negation...), run the tests after each,
-// and report the mutants no test noticed. The source file is always restored.
+// and report the mutants no test noticed. The source file is always restored; if a run is killed
+// outright, the next run restores it from <file>.mutate-backup.json.
 //
 //   node mutate.mjs --file src/pricing.js -- npx vitest run src/pricing.test.js
 //   node mutate.mjs --file app/pricing.py --lines 10-60 -- pytest tests/test_pricing.py -x -q
@@ -20,7 +21,7 @@
 // baseline that does not pass.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -300,6 +301,39 @@ export function parseArgs(argv) {
 }
 
 /**
+ * Path of the crash-recovery record kept next to the mutated file while a run is in progress.
+ *
+ * @param {string} file - Absolute path of the source file.
+ * @returns {string} Backup path.
+ */
+export function backupPath(file) {
+	return `${file}.mutate-backup.json`;
+}
+
+/**
+ * Undo an interrupted run (for example one killed with SIGKILL by an agent's timeout): when a backup
+ * exists and the file still holds the mutant that run wrote, put the original back.
+ *
+ * @param {string} file - Absolute path of the source file.
+ * @returns {"none" | "restored" | "conflict"} What was found: no backup, a restored file, or a file
+ *   edited since the interrupted run (left untouched).
+ */
+export function recoverInterrupted(file) {
+	const backup = backupPath(file);
+
+	if (!existsSync(backup)) return "none";
+
+	const { original, current } = JSON.parse(readFileSync(backup, "utf8"));
+
+	if (readFileSync(file, "utf8") !== current) return "conflict";
+
+	writeFileSync(file, original);
+	rmSync(backup);
+
+	return "restored";
+}
+
+/**
  * Entry point.
  *
  * @param {string[]} argv - Arguments after the script path.
@@ -322,19 +356,48 @@ function main(argv) {
 		return 2;
 	}
 
+	const recovery = recoverInterrupted(file);
+
+	if (recovery === "conflict") {
+		console.error(
+			`${options.file} changed since an interrupted mutation run. Its original is in ${backupPath(options.file)} ("original"); restore or keep your edits, then delete that file.`,
+		);
+		return 2;
+	}
+
+	if (recovery === "restored") console.error(`Restored ${options.file} from an interrupted mutation run.`);
+
 	const original = readFileSync(file, "utf8");
+	const backup = backupPath(file);
+
+	/**
+	 * Write a version of the source, recording it first so a killed run can be undone.
+	 *
+	 * @param {string} content - Source to write.
+	 */
+	function writeSource(content) {
+		writeFileSync(backup, JSON.stringify({ original, current: content }));
+		writeFileSync(file, content);
+	}
+
+	/**
+	 * Put the original source back and drop the recovery record.
+	 */
+	function restore() {
+		writeFileSync(file, original);
+		rmSync(backup, { force: true });
+	}
 
 	try {
 		// Mutation testing edits the source in place; prove it is writable before touching anything.
-		writeFileSync(file, original);
+		writeSource(original);
 	} catch (error) {
+		rmSync(backup, { force: true });
 		console.error(`Cannot write ${options.file} (${error.code ?? error.message}). Mutation testing edits the file in place and restores it; run it where the workspace is writable.`);
 		return 2;
 	}
+
 	const python = extname(file) === ".py";
-	const restore = function restoreSource() {
-		writeFileSync(file, original);
-	};
 
 	for (const signal of ["SIGINT", "SIGTERM"]) {
 		process.on(signal, function interrupted() {
@@ -346,6 +409,7 @@ function main(argv) {
 	const baseline = runTests(options.command, 10 * 60_000);
 
 	if (baseline.status !== "pass") {
+		restore();
 		console.error("The test command does not pass on the unmutated source; fix that first.");
 		return 2;
 	}
@@ -356,7 +420,7 @@ function main(argv) {
 
 	try {
 		for (const mutant of mutants) {
-			writeFileSync(file, applyMutant(original, mutant));
+			writeSource(applyMutant(original, mutant));
 
 			const outcome = runTests(options.command, timeout);
 

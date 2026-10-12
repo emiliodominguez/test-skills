@@ -1,6 +1,6 @@
 #!/bin/sh
 # Mutation-test the bundled scripts with the suite's own mutate.mjs. Each must keep its score.
-# Slow (tens of minutes): run before a release, not on every change.
+# Slow (about an hour): run before a release or after changing a script, not on every change.
 set -eu
 
 MUTATE=skills/test-audit/scripts/mutate.mjs

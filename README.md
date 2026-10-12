@@ -217,6 +217,11 @@ marketplace channel; `npx skills` is the recommended path. Requires Node.js 22.2
 - `scripts/codex-check.mjs`: 19 checks against the real Codex CLI, from skill loading to the
   plugin, the hook and the sandboxes.
 - The test audit reports no findings on a 199-file production suite it was not written for.
+- `pnpm dogfood`: the bundled scripts are mutation-tested with their own `mutate.mjs`. Scores:
+  audit 82.5%, guard 92.4%, repeat 94.1% (up from 55%, 58% and untested). The survivors it
+  surfaced led to three real fixes: regex literals hid findings from the audit, a test file
+  renamed out of the runner's reach passed the guard, and a killed mutation run left a mutant in
+  the source.
 
 Skills name testing tools where the tool is the point and stay neutral elsewhere. They name no
 agent host or model. Bombadil guidance targets 0.7.x; see the

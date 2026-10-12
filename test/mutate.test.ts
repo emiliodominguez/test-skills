@@ -1,10 +1,19 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
-import { applyMutant, generateMutants, mask, parseArgs, regexLiteralEnd, sample } from "../skills/test-audit/scripts/mutate.mjs";
+import {
+	applyMutant,
+	backupPath,
+	generateMutants,
+	mask,
+	parseArgs,
+	recoverInterrupted,
+	regexLiteralEnd,
+	sample,
+} from "../skills/test-audit/scripts/mutate.mjs";
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills/test-audit/scripts/mutate.mjs");
 const temporary: string[] = [];
@@ -132,6 +141,83 @@ describe("the mutation script", function script() {
 		const report = mutate(dir);
 
 		expect(report).toMatchObject({ score: 100, survived: [] });
+		expect(fs.readFileSync(path.join(dir, "pricing.mjs"), "utf8")).toBe(pricing);
+		expect(fs.existsSync(path.join(dir, "pricing.mjs.mutate-backup.json"))).toBe(false);
+	});
+});
+
+describe("interrupted runs", function interruptedSuite() {
+	test("recoverInterrupted reports none, restores the recorded mutant, and refuses a file edited since", function recover() {
+		const dir = fixture("");
+		const file = path.join(dir, "pricing.mjs");
+
+		expect(recoverInterrupted(file)).toBe("none");
+
+		fs.writeFileSync(file, "mutant");
+		fs.writeFileSync(backupPath(file), JSON.stringify({ original: pricing, current: "mutant" }));
+
+		expect(recoverInterrupted(file)).toBe("restored");
+		expect(fs.readFileSync(file, "utf8")).toBe(pricing);
+		expect(fs.existsSync(backupPath(file))).toBe(false);
+
+		fs.writeFileSync(file, "edited by hand");
+		fs.writeFileSync(backupPath(file), JSON.stringify({ original: pricing, current: "mutant" }));
+
+		expect(recoverInterrupted(file)).toBe("conflict");
+		expect(fs.readFileSync(file, "utf8")).toBe("edited by hand");
+		expect(fs.existsSync(backupPath(file))).toBe(true);
+	});
+
+	test("a run killed with SIGKILL is undone by the next run", async function killed() {
+		const dir = fixture("await new Promise(function wait(done) { setTimeout(done, 400); });\nassert.equal(discount(200, true), 180);");
+		const file = path.join(dir, "pricing.mjs");
+		const child = spawn("node", [SCRIPT, "--file", "pricing.mjs", "--json", "--", "node", "pricing.test.mjs"], { cwd: dir, stdio: "ignore" });
+		const deadline = Date.now() + 20_000;
+
+		while (fs.readFileSync(file, "utf8") === pricing && Date.now() < deadline) {
+			await new Promise(function wait(done) {
+				setTimeout(done, 25);
+			});
+		}
+
+		child.kill("SIGKILL");
+		await new Promise(function exited(done) {
+			child.on("exit", done);
+		});
+
+		expect(fs.readFileSync(file, "utf8")).not.toBe(pricing);
+		expect(fs.existsSync(backupPath(file))).toBe(true);
+
+		const rerun = spawnSync("node", [SCRIPT, "--file", "pricing.mjs", "--max", "1", "--json", "--", "node", "-e", "0"], {
+			cwd: dir,
+			encoding: "utf8",
+		});
+
+		expect(rerun.status).toBe(0);
+		expect(rerun.stderr).toContain("Restored pricing.mjs from an interrupted mutation run.");
+		expect(fs.readFileSync(file, "utf8")).toBe(pricing);
+		expect(fs.existsSync(backupPath(file))).toBe(false);
+	}, 30_000);
+
+	test("a file edited after an interrupted run is left alone with exit 2", function conflict() {
+		const dir = fixture("");
+		const file = path.join(dir, "pricing.mjs");
+
+		fs.writeFileSync(backupPath(file), JSON.stringify({ original: "old", current: "mutant" }));
+
+		const result = spawnSync("node", [SCRIPT, "--file", "pricing.mjs", "--", "node", "-e", "0"], { cwd: dir, encoding: "utf8" });
+
+		expect(result.status).toBe(2);
+		expect(result.stderr).toContain("changed since an interrupted mutation run");
+		expect(fs.readFileSync(file, "utf8")).toBe(pricing);
+	});
+
+	test("a failing baseline leaves no recovery record", function failingBaseline() {
+		const dir = fixture("");
+		const result = spawnSync("node", [SCRIPT, "--file", "pricing.mjs", "--", "node", "-e", "process.exit(1)"], { cwd: dir, encoding: "utf8" });
+
+		expect(result.status).toBe(2);
+		expect(fs.existsSync(path.join(dir, "pricing.mjs.mutate-backup.json"))).toBe(false);
 		expect(fs.readFileSync(path.join(dir, "pricing.mjs"), "utf8")).toBe(pricing);
 	});
 });
