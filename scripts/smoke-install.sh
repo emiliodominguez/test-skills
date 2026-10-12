@@ -20,7 +20,8 @@ run_isolated() {
 EXPECTED="$(cd "$ROOT/skills" && for d in */; do [ -f "$d/SKILL.md" ] && printf '%s\n' "${d%/}"; done | sort)"
 
 # Profiles resolve and the wrapper prints the command it would run.
-run_isolated sh "$ROOT/install.sh" --local --project --profile hardening --dry-run | grep -q -- "--skill test-findings test-policy test-security"
+run_isolated sh "$ROOT/install.sh" --local --project --profile hardening --dry-run | grep -q -- "--skill test-findings test-policy test-properties test-security" ||
+	{ echo "install.sh --profile hardening did not resolve the expected skills" >&2; exit 1; }
 
 run_isolated npx -y "$SKILLS_CLI" add "$ROOT" --list >"$WORK/list.txt" 2>&1
 for name in $EXPECTED; do
