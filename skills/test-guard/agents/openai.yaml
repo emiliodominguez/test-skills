@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Guard"
+  short_description: "Catch deleted, skipped and bent tests in a change"
+  default_prompt: "Use $test-guard to check this change for weakened tests before I commit."

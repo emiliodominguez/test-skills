@@ -10,7 +10,8 @@
 // Exit codes: 0 every run passed, 1 at least one run failed, 2 usage error.
 
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -74,6 +75,24 @@ export function summarize(results) {
 }
 
 /**
+ * Create a folder and return it, or null when it cannot be written.
+ *
+ * @param {string} folder - Folder to create.
+ * @returns {string | null} The folder, or null.
+ */
+function writableFolder(folder) {
+	try {
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, ".write-probe"), "");
+		rmSync(join(folder, ".write-probe"));
+
+		return folder;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Run the command once.
  *
  * @param {string[]} command - Command and arguments.
@@ -118,10 +137,15 @@ async function main(argv) {
 	}
 
 	const results = [];
+	const failedOutput = [];
 	let next = 1;
 	let stop = false;
 
-	mkdirSync(options.out, { recursive: true });
+	// A read-only workspace (for example a sandbox) still allows measuring: fall back to the temp
+	// folder, and when nothing is writable print the failing output instead of saving it.
+	const out = writableFolder(options.out) ?? writableFolder(join(tmpdir(), "repeat"));
+
+	if (out !== options.out) console.error(out ? `Cannot write ${options.out}; writing logs to ${out}` : "No writable folder: failing output is printed instead of saved.");
 
 	/**
 	 * Keep one lane busy until the runs are used up or a failure stops the batch.
@@ -138,7 +162,8 @@ async function main(argv) {
 			process.stdout.write(result.code === 0 ? "." : "F");
 
 			if (result.code !== 0) {
-				writeFileSync(join(options.out, `run-${run}.log`), result.output);
+				if (out) writeFileSync(join(out, `run-${run}.log`), result.output);
+				else failedOutput.push(`--- run ${run} (exit ${result.code}) ---\n${result.output.split("\n").slice(-20).join("\n")}`);
 				if (options.untilFail) stop = true;
 			}
 		}
@@ -150,9 +175,10 @@ async function main(argv) {
 
 	console.log(
 		`\n${summary.failures}/${summary.runs} runs failed (${(summary.rate * 100).toFixed(1)}%), p50 ${summary.p50} ms, max ${summary.max} ms` +
-			(summary.failures > 0 ? `\nfailing runs: ${summary.failedRuns.join(", ")}; logs in ${options.out}/run-<n>.log` : ""),
+			(summary.failures > 0 ? `\nfailing runs: ${summary.failedRuns.join(", ")}${out ? `; logs in ${out}/run-<n>.log` : ""}` : ""),
 	);
-	writeFileSync(join(options.out, "summary.json"), `${JSON.stringify({ command: options.command, parallel: options.parallel, ...summary }, null, "\t")}\n`);
+	if (out) writeFileSync(join(out, "summary.json"), `${JSON.stringify({ command: options.command, parallel: options.parallel, ...summary }, null, "\t")}\n`);
+	for (const block of failedOutput) console.log(block);
 
 	return summary.failures > 0 ? 1 : 0;
 }

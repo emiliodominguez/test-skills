@@ -1,0 +1,4 @@
+interface:
+  display_name: "End-to-End Tours"
+  short_description: "Isolated, fenced E2E tests without blind retries"
+  default_prompt: "Use $test-e2e to write an end-to-end test for the critical path I describe and remove its fixed sleeps."

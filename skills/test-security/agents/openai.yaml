@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Tests"
+  short_description: "Authorization matrix and hostile payloads per procedure"
+  default_prompt: "Use $test-security to build an authorization matrix and hostile-input tests for every API procedure."

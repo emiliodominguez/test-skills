@@ -1,0 +1,4 @@
+interface:
+  display_name: "Policy Tests"
+  short_description: "Repository rules enforced as tests"
+  default_prompt: "Use $test-policy to turn the convention I describe into a test that lists every offender."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bombadil Setup"
+  short_description: "Property-based exploration of web and terminal UIs"
+  default_prompt: "Use $test-bombadil to set up Bombadil for this app with the bundled runner and page kit, run the defaults for two minutes and report."

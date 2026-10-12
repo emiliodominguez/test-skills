@@ -26,11 +26,12 @@
 		"typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.kit.json",
 		"check": "pnpm run format:check && pnpm run typecheck && pnpm run validate && pnpm run test",
 		"smoke": "sh scripts/smoke-install.sh",
-		"verify": "pnpm run check && sh scripts/verify-demo.sh && sh scripts/smoke-install.sh",
+		"verify": "pnpm run check && sh scripts/verify-demo.sh && sh scripts/smoke-install.sh && node scripts/codex-check.mjs",
 		"demo": "node skills/test-bombadil/assets/bombadil-run.mjs --start \"node examples/buggy-shop/serve.mjs --kit\" --origin http://127.0.0.1:8765/ --spec examples/buggy-shop/bombadil/spec.ts --keep-going --time-limit 2m --out out/bombadil/buggy-shop",
 		"demo:fixed": "node skills/test-bombadil/assets/bombadil-run.mjs --start \"node examples/buggy-shop/serve.mjs --fixed --kit\" --origin http://127.0.0.1:8765/ --spec examples/buggy-shop/bombadil/spec.ts --keep-going --prune-clean --time-limit 120s --out out/bombadil/buggy-shop-fixed",
 		"demo:cli": "node skills/test-bombadil/assets/bombadil-run.mjs --terminal \"node examples/buggy-cli/todo.mjs\" --spec examples/buggy-cli/bombadil/spec.ts --keep-going --time-limit 45s --out out/bombadil/buggy-cli -- --columns 72 --rows 28",
-		"demo:cli:fixed": "node skills/test-bombadil/assets/bombadil-run.mjs --terminal \"TODO_FIXED=1 node examples/buggy-cli/todo.mjs\" --spec examples/buggy-cli/bombadil/spec.ts --keep-going --prune-clean --time-limit 45s --out out/bombadil/buggy-cli-fixed -- --columns 72 --rows 28"
+		"demo:cli:fixed": "node skills/test-bombadil/assets/bombadil-run.mjs --terminal \"TODO_FIXED=1 node examples/buggy-cli/todo.mjs\" --spec examples/buggy-cli/bombadil/spec.ts --keep-going --prune-clean --time-limit 45s --out out/bombadil/buggy-cli-fixed -- --columns 72 --rows 28",
+		"codex": "node scripts/codex-check.mjs"
 	},
 	"dependencies": {
 		"js-yaml": "^5.4.3"

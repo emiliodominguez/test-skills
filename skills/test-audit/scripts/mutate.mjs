@@ -264,6 +264,14 @@ function main(argv) {
 	}
 
 	const original = readFileSync(file, "utf8");
+
+	try {
+		// Mutation testing edits the source in place; prove it is writable before touching anything.
+		writeFileSync(file, original);
+	} catch (error) {
+		console.error(`Cannot write ${options.file} (${error.code ?? error.message}). Mutation testing edits the file in place and restores it; run it where the workspace is writable.`);
+		return 2;
+	}
 	const python = extname(file) === ".py";
 	const restore = function restoreSource() {
 		writeFileSync(file, original);

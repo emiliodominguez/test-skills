@@ -1,0 +1,17 @@
+{
+	"name": "test-skills",
+	"version": "0.2.0",
+	"description": "Tests that can fail: audit and guard agent-written tests, mutation checks, flakiness, Bombadil exploration and finding triage.",
+	"keywords": ["agent-skills", "testing", "mutation-testing", "bombadil", "property-based-testing"],
+	"skills": "./skills/",
+	"hooks": "./hooks/hooks.json",
+	"interface": {
+		"displayName": "Test Skills",
+		"shortDescription": "Tests that can fail",
+		"longDescription": "Audit and guard agent-written tests, prove suites can fail with mutants, measure flakiness, and explore web and terminal UIs with Bombadil.",
+		"developerName": "Emilio Dominguez",
+		"category": "Coding",
+		"websiteUrl": "https://github.com/emiliodominguez/test-skills",
+		"defaultPrompt": ["Audit the tests in this repository and prove they can fail."]
+	}
+}

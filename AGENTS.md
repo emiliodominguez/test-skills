@@ -6,7 +6,8 @@ Project guidance for agent sessions working in this repository. Global user inst
 
 The source of the host-agnostic `test-*` skill suite for testing applications. It is distributed
 from GitHub through the open skills CLI (`npx skills add emiliodominguez/test-skills`).
-`.claude-plugin/` manifests are an optional marketplace channel. Nothing is published to npm.
+`.claude-plugin/` and `.codex-plugin/` (with `.agents/plugins/marketplace.json`) are optional plugin
+channels sharing `hooks/hooks.json`. Nothing is published to npm.
 
 ## Architecture
 
@@ -19,7 +20,7 @@ validates skills, `src/core/distribution.ts` checks profiles and manifests.
 
 Run `pnpm check` before committing (format check, typecheck, validate, tests). Run `pnpm smoke`
 for install script or manifest changes; it needs npm registry access. `pnpm verify` adds the
-Bombadil demo and the smoke test. CI is manual-only (no Actions minutes): never rely on it.
+Bombadil demos, the install smoke test and `pnpm codex` (the real Codex CLI, no model needed). CI is manual-only (no Actions minutes): never rely on it.
 
 ## Skill authoring
 
@@ -33,6 +34,9 @@ Bombadil demo and the smoke test. CI is manual-only (no Actions minutes): never 
   triggers, and end with a handoff clause (`Hands off to`, `Hands back to`, `Routes to`, `Feeds`).
 - Every skill needs markers in `evals/beats.json` and four should prompts plus three near misses
   in `evals/triggers.json`.
+- `agents/openai.yaml` in each skill is the one host-specific adapter file (Codex display name,
+  short description and a `$skill` default prompt); `pnpm validate` checks it. Keep host syntax there,
+  never in `SKILL.md`.
 - No product or project names from the codebases these skills were distilled from. Examples use
   neutral domains (cart, checkout, invoices).
 

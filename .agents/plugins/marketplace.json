@@ -1,0 +1,16 @@
+{
+	"name": "test-skills",
+	"interface": {
+		"displayName": "Test Skills"
+	},
+	"plugins": [
+		{
+			"name": "test-skills",
+			"source": {
+				"source": "local",
+				"path": "./"
+			},
+			"category": "Coding"
+		}
+	]
+}

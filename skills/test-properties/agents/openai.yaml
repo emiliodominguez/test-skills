@@ -1,0 +1,4 @@
+interface:
+  display_name: "Property-Based Tests"
+  short_description: "Invariants and round trips with shrinking"
+  default_prompt: "Use $test-properties to add property-based tests for the parser or calculation I name."

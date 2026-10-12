@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Codex: `agents/openai.yaml` per skill, a `.codex-plugin/` manifest and
+  `.agents/plugins/marketplace.json`, Codex hook docs, and `scripts/codex-check.mjs` (19 checks
+  against the real CLI, including its sandboxes). `mutate.mjs` and `repeat.mjs` fail cleanly or
+  degrade when the workspace is read-only.
 - `guard-hook.mjs` for agent stop hooks and git hooks, a plugin `hooks/hooks.json`, and
   `docs/HOOKS.md`.
 - Bombadil terminal driver: `references/terminal.md`, a verified `examples/buggy-cli` demo and

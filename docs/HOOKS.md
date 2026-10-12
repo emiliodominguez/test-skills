@@ -35,11 +35,39 @@ carries `stop_hook_active`, which the script uses to avoid blocking twice. Insta
 repository as a plugin through `.claude-plugin/` registers the same hook from
 [`hooks/hooks.json`](../hooks/hooks.json). Reference: <https://code.claude.com/docs/en/hooks>.
 
+## Codex
+
+Codex reads the same `hooks.json` shape. Put it in the project's `.codex/hooks.json` (or
+`~/.codex/hooks.json` for every project):
+
+```json
+{
+	"hooks": {
+		"Stop": [
+			{
+				"hooks": [{ "type": "command", "command": "node .agents/skills/test-guard/scripts/guard-hook.mjs" }]
+			}
+		]
+	}
+}
+```
+
+What `scripts/codex-check.mjs` verifies against the real CLI (0.162.1):
+
+- The Stop payload carries `cwd` and `stop_hook_active`, as the script expects.
+- Exit 2 with a non-empty stderr blocks the stop and hands stderr to the agent as its next
+  instruction; exit 2 with an empty stderr does not block, so the script always writes its findings.
+- A project `.codex/hooks.json` is read only in a trusted project, and every non-managed hook is
+  registered as untrusted until you approve it in Codex's `/hooks` view. Until then it does not run.
+- Installing this repository as a Codex plugin registers the same Stop hook from
+  [`hooks/hooks.json`](../hooks/hooks.json); Codex sets `PLUGIN_ROOT` and `CLAUDE_PLUGIN_ROOT` for
+  plugin hooks, so one file serves both hosts. It also needs approval in `/hooks`.
+
 ## Other agents
 
-Agents with an end-of-turn hook (for example a `stop` event in a `hooks.json`) can run the same
-command. Check your agent's documentation for the payload and for how it treats exit code 2; the
-script only needs a working directory inside the repository.
+Agents with an end-of-turn hook can run the same command. Check your agent's documentation for the
+payload and for how it treats exit code 2; the script only needs a working directory inside the
+repository.
 
 ## Git
 

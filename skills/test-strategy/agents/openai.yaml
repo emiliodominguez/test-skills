@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Strategy"
+  short_description: "Map risks to test layers and oracles"
+  default_prompt: "Use $test-strategy to audit this repository's tests and list the risks they miss, with a layer and oracle for each."

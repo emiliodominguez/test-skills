@@ -1,0 +1,4 @@
+interface:
+  display_name: "Finding Triage"
+  short_description: "Reproduce, shrink, classify and pin findings"
+  default_prompt: "Use $test-findings to reproduce and classify the latest violation, then pin it with a regression test."

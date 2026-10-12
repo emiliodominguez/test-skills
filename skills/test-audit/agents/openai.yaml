@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Audit"
+  short_description: "Find tests that cannot fail, prove the rest with mutants"
+  default_prompt: "Use $test-audit to find the tests in this branch that cannot fail, then mutation-check the code they cover."

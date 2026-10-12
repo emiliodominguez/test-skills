@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flaky Tests"
+  short_description: "Measure, name and remove nondeterminism"
+  default_prompt: "Use $test-flaky to measure how often the test I name fails, find the source and prove the fix."

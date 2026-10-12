@@ -52,6 +52,13 @@ Without the runner: `bombadil browser test <origin> [spec] --headless --time-lim
   not have it.) Pass auth with `--cookie` or `--header`, or sign in through a gated action (see
   `test-bombadil-spec`).
 
+## Sandboxed agents
+
+When commands run in a sandbox, Bombadil needs write access to the workspace for its output. The
+terminal driver then works as is. The browser driver also needs to bind a local port and start a
+browser, which a sandbox without network access refuses (`listen EPERM`): run it with network
+access enabled for the workspace, or ask for approval to run it outside the sandbox.
+
 ## Phase 3: Build the harness
 
 A raw run explores, but its findings often do not replay and some failures stay invisible.

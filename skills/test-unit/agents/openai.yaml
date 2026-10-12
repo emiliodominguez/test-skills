@@ -1,0 +1,4 @@
+interface:
+  display_name: "High-Signal Unit Tests"
+  short_description: "Behavior tests on the pure core, no mocks of the unit"
+  default_prompt: "Use $test-unit to add tests for the module I name, then prove one fails for the right reason."

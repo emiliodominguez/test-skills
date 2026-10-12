@@ -162,7 +162,35 @@ npx skills add emiliodominguez/test-skills -g -a <agent> -y                 # us
 npx skills add emiliodominguez/test-skills --skill test-audit test-guard    # just some skills
 ```
 
-Profiles, from a clone (membership in [`profiles.json`](profiles.json)):
+### Codex
+
+Skills install into `.agents/skills/`, where Codex looks:
+
+```sh
+npx skills add emiliodominguez/test-skills -a codex -y
+```
+
+Or as a Codex plugin, which adds the skills under the `test-skills:` namespace and the guard's
+Stop hook (approve it once in `/hooks`):
+
+```sh
+codex plugin marketplace add emiliodominguez/test-skills
+codex plugin add test-skills@test-skills
+```
+
+`pnpm codex` checks all of this against the real Codex CLI without a model: skills load with
+their descriptions and `agents/openai.yaml` metadata, the plugin and its hook register, the
+guard hook blocks a weakened Stop, and the scripts behave inside Codex's read-only and
+workspace-write sandboxes.
+
+### Claude Code
+
+`npx skills add emiliodominguez/test-skills -a claude-code -y`, or the `.claude-plugin/`
+marketplace. See [docs/HOOKS.md](docs/HOOKS.md) for the Stop hook.
+
+### Profiles
+
+From a clone (membership in [`profiles.json`](profiles.json)):
 
 | Profile     | Skills                                                       |
 | ----------- | ------------------------------------------------------------ |
@@ -186,6 +214,8 @@ marketplace channel; `npx skills` is the recommended path. Requires Node.js 22.2
 - `scripts/verify-demo.sh`: the demo must find the seeded bugs and stay silent when fixed.
 - `pnpm verify` runs all of it locally; the GitHub workflow is manual-only.
 - `scripts/smoke-install.sh`: a real `npx skills` install and removal for several agents.
+- `scripts/codex-check.mjs`: 19 checks against the real Codex CLI, from skill loading to the
+  plugin, the hook and the sandboxes.
 - The test audit reports no findings on a 199-file production suite it was not written for.
 
 Skills name testing tools where the tool is the point and stay neutral elsewhere. They name no
