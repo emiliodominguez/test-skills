@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
-import { changedExpectations, compareTestFile, countMarkers, isTestFile } from "../skills/test-guard/scripts/guard-tests.mjs";
+import { changedExpectations, compareConfig, compareTestFile, countMarkers, isTestFile } from "../skills/test-guard/scripts/guard-tests.mjs";
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills/test-guard/scripts/guard-tests.mjs");
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
@@ -150,6 +150,98 @@ describe("guard CLI against a repository", function cliSuite() {
 		write(dir, { "vitest.config.ts": "export default { retries: 0, reporters: ['dot'] };\n" });
 
 		expect(guard(dir, "--json", "--base", "HEAD")).toMatchObject({ status: 0, rules: [] });
+	});
+});
+
+describe("guard CLI edge cases found by mutation testing", function edgeSuite() {
+	test("a test file renamed to a name the runner does not collect is a deleted test file", function hiddenRename() {
+		const dir = repository({ "src/cart.test.js": suite });
+
+		git(dir, "mv", "src/cart.test.js", "src/cart.js");
+
+		const result = guard(dir, "--json", "--base", "HEAD");
+
+		expect(result.rules).toEqual(["deleted-test-file"]);
+		expect(JSON.parse(result.stdout).findings[0]).toMatchObject({
+			file: "src/cart.js",
+			detail: "renamed from src/cart.test.js; 2 tests no longer collected",
+		});
+	});
+
+	test("a deleted snapshot is reported as deleted", function deletedSnapshot() {
+		const dir = repository({ "src/__snapshots__/cart.test.js.snap": "exports[`a`] = `1`;\n", "src/cart.test.js": suite });
+
+		fs.rmSync(path.join(dir, "src/__snapshots__/cart.test.js.snap"));
+
+		expect(JSON.parse(guard(dir, "--json", "--base", "HEAD").stdout).findings).toEqual([
+			expect.objectContaining({ rule: "updated-snapshots", detail: "snapshot deleted" }),
+		]);
+	});
+
+	test("a snapshot change counts as a test change for a source change", function snapshotIsTestChange() {
+		const dir = repository({ "src/cart.js": "export const a = 1;\n", "src/__snapshots__/cart.test.js.snap": "exports[`a`] = `1`;\n" });
+
+		write(dir, { "src/cart.js": "export const a = 2;\n", "src/__snapshots__/cart.test.js.snap": "exports[`a`] = `2`;\n" });
+
+		expect(guard(dir, "--json", "--base", "HEAD").rules).toEqual(["updated-snapshots"]);
+	});
+
+	test("a source change alone is reported as info", function sourceOnly() {
+		const dir = repository({ "src/cart.js": "export const a = 1;\n", "src/cart.test.js": suite });
+
+		write(dir, { "src/cart.js": "export const a = 2;\n" });
+
+		expect(guard(dir, "--json", "--base", "HEAD")).toMatchObject({ status: 0, rules: ["no-test-changes"] });
+	});
+
+	test("a deleted test config is not a crash", function deletedConfig() {
+		const dir = repository({ "src/cart.test.js": suite, "vitest.config.ts": "export default { retries: 0 };\n" });
+
+		fs.rmSync(path.join(dir, "vitest.config.ts"));
+
+		expect(guard(dir, "--json", "--base", "HEAD")).toMatchObject({ status: 0, rules: [] });
+	});
+
+	test("lists at most five removed test titles", function removedTitles() {
+		const many = Array.from({ length: 8 }, function testCase(_, index) {
+			return `test("case ${index}", () => {\n\texpect(${index}).toBe(${index});\n});\n`;
+		}).join("");
+		const findings = compareTestFile(many, "");
+		const removed = findings.find(function isRemoved(finding: { rule: string }) {
+			return finding.rule === "removed-tests";
+		});
+
+		expect(removed?.detail).toBe("8 -> 0 tests; gone: case 0 | case 1 | case 2 | case 3 | case 4");
+	});
+});
+
+describe("guard config and expectation pairing", function pairingSuite() {
+	test("adding the first retry is flagged", function firstRetry() {
+		expect(compareConfig("export default {};\n", "export default { retries: 1 };\n")).toEqual([
+			{ rule: "added-retries", detail: "retries 0 -> 1" },
+		]);
+	});
+
+	test("exclusion detail keeps three lines and at most 160 characters", function exclusionDetail() {
+		const after = ["exclude: ['a']", "exclude: ['b']", "exclude: ['c']", "exclude: ['d']"].join("\n");
+		const [finding] = compareConfig("", after);
+
+		expect(finding).toEqual({ rule: "excluded-tests", detail: "exclude: ['a'] | exclude: ['b'] | exclude: ['c']" });
+		expect(compareConfig("", `exclude: ['${"x".repeat(300)}']`)[0]?.detail).toHaveLength(160);
+	});
+
+	test("changed-expectation detail is capped at 160 characters", function expectationDetail() {
+		const diff = `@@ -1 +1 @@\n-expect(a).toBe(${"1".repeat(200)});\n+expect(a).toBe(2);\n`;
+
+		expect(changedExpectations(diff)[0]?.detail).toHaveLength(160);
+	});
+
+	test("an expectation on another subject is not paired", function otherSubject() {
+		expect(changedExpectations("@@ -1 +1 @@\n-expect(a).toBe(1);\n+expect(b).toBe(2);\n")).toEqual([]);
+	});
+
+	test("lines are paired within a hunk, not across hunks", function perHunk() {
+		expect(changedExpectations("@@ -1 +0,0 @@\n-expect(a).toBe(1);\n@@ -0,0 +9 @@\n+expect(a).toBe(2);\n")).toEqual([]);
 	});
 });
 

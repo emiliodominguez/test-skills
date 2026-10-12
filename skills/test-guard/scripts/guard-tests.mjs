@@ -380,6 +380,12 @@ export function guard(base) {
 
 			const before = showAt(base, change.from);
 
+			// A rename to a name the runner does not collect removes every test in the file.
+			if (change.status === "R" && !isTestFile(file)) {
+				add(file, [{ rule: "deleted-test-file", detail: `renamed from ${change.from}; ${testTitles(before ?? "").length} tests no longer collected` }]);
+				continue;
+			}
+
 			if (before === null || !existsSync(file)) continue;
 
 			const after = readFileSync(file, "utf8");
