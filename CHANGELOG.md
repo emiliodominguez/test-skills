@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `guard-hook.mjs` for agent stop hooks and git hooks, a plugin `hooks/hooks.json`, and
+  `docs/HOOKS.md`.
 - Bombadil terminal driver: `references/terminal.md`, a verified `examples/buggy-cli` demo and
   `--terminal` in the runner.
 - Runner streams traces (terminal traces reach gigabytes), bounds its log, and prunes clean runs

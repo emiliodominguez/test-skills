@@ -94,7 +94,17 @@ error  added-retries        vitest.config.ts  retries 0 -> 3
 guard-tests vs main: WEAKENED (4 errors, 1 other)
 ```
 
-Run it at the end of every agent session, as a pre-commit hook, or in CI against the target branch.
+Make it automatic: `guard-hook.mjs` blocks an agent's stop hook once when tests were weakened,
+so the agent has to restore them or justify each one before it can finish. One entry in your
+agent's hook settings, or a git pre-commit hook; see [docs/HOOKS.md](docs/HOOKS.md).
+
+```json
+{
+	"hooks": {
+		"Stop": [{ "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/skills/test-guard/scripts/guard-hook.mjs\"" }] }]
+	}
+}
+```
 
 ## What we measured
 

@@ -1,0 +1,15 @@
+{
+	"description": "test-skills: block an agent once when it tries to finish with weakened tests (deleted, skipped or bent tests, lowered thresholds, added retries).",
+	"hooks": {
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/test-guard/scripts/guard-hook.mjs\""
+					}
+				]
+			}
+		]
+	}
+}

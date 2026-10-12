@@ -49,9 +49,15 @@ work done, check that no test was deleted, skipped, loosened or bent to match th
 
 ## Wiring it in
 
-- **Per change, locally:** a pre-commit hook running `node <path>/guard-tests.mjs --base HEAD`.
-- **At the end of an agent session:** run it before claiming the work is done, and include its
-  output in the summary.
+`scripts/guard-hook.mjs` wraps the guard for hooks: on weakened tests it prints the findings to
+stderr and exits 2, it reads an optional JSON payload (`cwd`, `stop_hook_active`) and lets a
+second stop through so a justified change is not blocked forever, and it stays silent outside a
+git repository.
+
+- **Per change, locally:** a pre-commit hook running `node <path>/guard-hook.mjs --base HEAD`.
+- **At the end of an agent session:** an end-of-turn or stop hook running `node <path>/guard-hook.mjs`,
+  so the agent cannot finish with weakened tests without addressing them once. Without hooks, run
+  the guard before claiming the work is done and include its output in the summary.
 - **In CI:** run it on change requests against the target branch (`--base origin/main`) with
   enough history fetched for the merge base, and require a justification for each error.
 
