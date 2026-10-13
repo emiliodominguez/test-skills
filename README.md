@@ -1,22 +1,18 @@
-<p align="center">
-  <img src="docs/assets/test-skills-banner.webp" alt="A robotic test investigator discovers a bug hiding beneath a green checkmark in a testing laboratory." width="100%" />
+<p>
+  <img src="docs/assets/test-skills-fracture.webp" alt="test-skills. Break the code. Keep the test. An olive ceramic checkmark splits into displaced sections, exposing its fault lines." width="100%" />
 </p>
 
 # test-skills
 
-### Tests that can fail.
-
-Agent Skills for coding agents that **prove tests catch bugs**, **flag weakened assertions**, and
-**explore the paths nobody scripts** with [Bombadil](https://github.com/antithesishq/bombadil).
+**Tests that can fail.** Thirteen Agent Skills for auditing tests, catching weakened assertions,
+and exploring the paths nobody scripts with [Bombadil](https://github.com/antithesishq/bombadil).
 
 [![Agent Skills: spec compliant](https://img.shields.io/badge/Agent%20Skills-spec%20compliant-8250df?style=for-the-badge&labelColor=161b22&logo=bookstack&logoColor=white)](https://agentskills.io/specification)
 [![Agents: any](https://img.shields.io/badge/agents-any-0969da?style=for-the-badge&labelColor=161b22&logo=probot&logoColor=white)](https://github.com/vercel-labs/skills)
 [![Install: npx skills add](https://img.shields.io/badge/npx-skills%20add-cb3837?style=for-the-badge&labelColor=161b22&logo=npm&logoColor=white)](https://skills.sh)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639?style=for-the-badge&labelColor=161b22&logo=opensourceinitiative&logoColor=white)](LICENSE)
 
-**[Quick start](#quick-start)** · **[Choose a skill](#start-with-your-risk)** · **[Watch it find bugs](#see-it-find-bugs)** · **[All 13 skills](#all-skills)** · **[Measured results](#what-we-measured)**
-
-> A green suite is a result. Show that it goes red when the code breaks.
+[Install](#quick-start) · [Break a test](#would-your-tests-notice) · [Choose a skill](#choose-your-first-move) · [Run the demo](#see-it-find-bugs) · [Evidence](#what-we-measured)
 
 ## Quick start
 
@@ -24,65 +20,59 @@ Agent Skills for coding agents that **prove tests catch bugs**, **flag weakened 
 npx skills add emiliodominguez/test-skills
 ```
 
-Pick your skills and agent during installation. Requires **Node.js 22.20+**.
-Using Codex or Claude Code? See the [agent-specific install options](#install).
+Pick your skills and agent. **Node.js 22.20+** required.
+[Codex, Claude Code, plugins and profiles →](#install)
 
-Start with the audit and guard if you already have a suite:
+Already have a suite? Start with `test-audit` and `test-guard`:
 
 ```sh
 npx skills add emiliodominguez/test-skills --skill test-audit test-guard
 ```
 
-Then ask your agent:
+## Would your tests notice?
 
-```text
-Audit this branch's tests. Find assertions that cannot fail, mutation-check the
-behavior they claim to cover, and flag any tests weakened relative to main.
+Suppose `total([12, 8])` must return `20`. This assertion passes:
+
+```js
+assert.equal(total([12, 8]), total([12, 8]));
 ```
 
-## Start with your risk
+Now replace the implementation with `return 0`. **Still green.** The test compares the function
+with itself; it never checks the requirement.
 
-| You want to...                  | Start here                                     | What you get                                                                   |
-| ------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| Trust an existing green suite   | [test-audit](skills/test-audit/SKILL.md)       | Suspicious tests identified and behavior checked with mutants                  |
-| Stop tests getting bent to pass | [test-guard](skills/test-guard/SKILL.md)       | A diff report of deletions, skips, changed expectations and lowered thresholds |
-| Find bugs beyond scripted flows | [test-bombadil](skills/test-bombadil/SKILL.md) | Property-driven exploration with replayable traces                             |
-| Diagnose intermittent failures  | [test-flaky](skills/test-flaky/SKILL.md)       | A measured failure rate, an identified cause and a verified fix                |
-| Plan a suite from scratch       | [test-strategy](skills/test-strategy/SKILL.md) | Risks mapped to test layers, oracles and cadence                               |
+<details>
+<summary><strong>Give the test something to lose.</strong></summary>
 
-**13 skills. Four stages. An evidence trail.** Plan the risks, author the tests, explore the
-unexpected, and triage failures into reproducible regressions. The bundled scripts also run
-without an agent in CI or a pre-commit hook.
+Use an independent expected result:
 
-## The problem
+```js
+assert.equal(total([12, 8]), 20);
+```
 
-Your agent says the suite is green. That claim is cheap:
+The broken implementation now fails: `0 !== 20`. Fix the implementation and keep the assertion.
 
-- **Agents over-mock.** In agent-authored commits, 36% of test commits add mocks, against 26%
-  for humans, and agents reach for plain mocks 95% of the time
-  ([MSR 2026](https://arxiv.org/abs/2602.00409v1)).
-- **Coverage lies.** LLM-written tests on a large industrial codebase reached a 25.2% mutation
-  score: most of the lines they "covered" could be broken without a single failure
-  ([ESEM 2026](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ESEM.2026.95)).
-- **Tests get bent to pass.** Developers report agents rewriting a failing test so that the wrong
-  result counts as a pass ([HN](https://news.ycombinator.com/item?id=43307809)), and calling a
-  failure "preexisting" to move on ([HN](https://news.ycombinator.com/item?id=47660925)).
-- **Nobody scripts the weird paths.** End-to-end tests check the flows someone wrote down. The
-  bugs live in the ones nobody did.
+That is the loop behind `test-audit`: identify suspicious tests, introduce controlled faults,
+and check which ones the suite detects. A surviving mutant calls for investigation; it can
+expose missing coverage or be equivalent to the original behavior.
 
-## What you get
+**A killed mutant is evidence about that fault, not a guarantee that the program is correct.**
 
-| Failure mode                                                                             | Skill                                                                                                        | Bundled tool                         |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| Tests that cannot fail: no assertions, tautologies, mocks of the unit, `.only`, sleeps   | [`test-audit`](skills/test-audit/SKILL.md)                                                                   | `audit-tests.mjs` + a mutation check |
-| Tests weakened to get green: deleted, skipped, loosened, re-recorded, thresholds lowered | [`test-guard`](skills/test-guard/SKILL.md)                                                                   | `guard-tests.mjs`                    |
-| "Just add a retry"                                                                       | [`test-flaky`](skills/test-flaky/SKILL.md)                                                                   | `repeat.mjs`                         |
-| Bugs on paths nobody scripted                                                            | [`test-bombadil`](skills/test-bombadil/SKILL.md), [`test-bombadil-spec`](skills/test-bombadil-spec/SKILL.md) | runner, page kit, typed property kit |
-| Assertions stuck on one path                                                             | [`test-e2e-to-bombadil`](skills/test-e2e-to-bombadil/SKILL.md)                                               |                                      |
-| Examples that miss edge cases                                                            | [`test-properties`](skills/test-properties/SKILL.md)                                                         |                                      |
-| Findings nobody can reproduce                                                            | [`test-findings`](skills/test-findings/SKILL.md)                                                             | replay, confirm, shrink              |
+</details>
 
-The scripts have zero dependencies and run without an agent too, in CI or a pre-commit hook.
+## Choose your first move
+
+| The question                         | Start here                                       | Bring back                                                      |
+| ------------------------------------ | ------------------------------------------------ | --------------------------------------------------------------- |
+| **Does green mean anything?**        | [`test-audit`](skills/test-audit/SKILL.md)       | Audit findings and mutation evidence                            |
+| **Did the tests get easier?**        | [`test-guard`](skills/test-guard/SKILL.md)       | A diff of skips, deletions, changed expectations and thresholds |
+| **What happens off the happy path?** | [`test-bombadil`](skills/test-bombadil/SKILL.md) | Property failures with replayable traces                        |
+| **Why does this fail sometimes?**    | [`test-flaky`](skills/test-flaky/SKILL.md)       | A measured failure rate, a cause and a verified fix             |
+| **What deserves a test?**            | [`test-strategy`](skills/test-strategy/SKILL.md) | Risks mapped to layers, oracles and cadence                     |
+
+The audit, guard and repeat scripts have zero dependencies. Run them directly in CI or a
+pre-commit hook, with or without an agent. [Browse all 13 skills →](#all-skills)
+
+---
 
 ## See it find bugs
 
@@ -90,22 +80,30 @@ The scripts have zero dependencies and run without an agent too, in CI or a pre-
 specification is the bundled property kit plus two domain properties. There are no scripted
 paths and no selectors for the bugs.
 
+> **The unexpected find:** the first "fixed" build still has an integer-overflow bug. Bombadil
+> discovers it by entering a huge quantity and checking that the cart total matches its lines.
+
 ```sh
 git clone https://github.com/emiliodominguez/test-skills && cd test-skills
 pnpm install && pnpm demo
 ```
 
-One two-minute run (long typed strings shortened):
+<details>
+<summary><strong>Open the field report: one two-minute run</strong></summary>
 
-| Property               | Verdict | Count | First step | After                                     |
-| ---------------------- | ------- | ----: | ---------: | ----------------------------------------- |
-| injectedTextStaysInert | stop    |   294 |         11 | type "\"><svg id=bmbxss onload=alert(1)>" |
-| noBrokenValues         | stop    |    97 |         74 | type "--3"                                |
-| emptyCartIsFree        | stop    |    58 |         37 | Click "button                             |     | Remove Stoneware mug | 0"  |
-| noDuplicateIds         | stop    |    40 |        101 | type "<a id=bmbxss href=javascript:..."   |
-| noUncaughtExceptions   | stop    |    28 |         38 | Click "button                             |     | Apply                | 0"  |
-| cartTotalAddsUp        | stop    |    16 |         25 | type "=]7oi&~u@Mr*$..."                   |
-| escapeClosesDialogs    | stop    |     8 |        287 | key 27                                    |
+Long typed strings are shortened. Counts are reported property failures, not distinct bugs.
+
+| Property                 | Verdict | Count | First step | After                                       |
+| ------------------------ | ------- | ----: | ---------: | ------------------------------------------- |
+| `injectedTextStaysInert` | stop    |   294 |         11 | `type "\"><svg id=bmbxss onload=alert(1)>"` |
+| `noBrokenValues`         | stop    |    97 |         74 | `type "--3"`                                |
+| `emptyCartIsFree`        | stop    |    58 |         37 | `Click "button\|\|Remove Stoneware mug\|0"` |
+| `noDuplicateIds`         | stop    |    40 |        101 | `type "<a id=bmbxss href=javascript:..."`   |
+| `noUncaughtExceptions`   | stop    |    28 |         38 | `Click "button\|\|Apply\|0"`                |
+| `cartTotalAddsUp`        | stop    |    16 |         25 | `type "=]7oi&~u@Mr*$..."`                   |
+| `escapeClosesDialogs`    | stop    |     8 |        287 | `key 27`                                    |
+
+</details>
 
 Exploration is random: a single two-minute run usually finds five or six of the six seeded bugs,
 and the stuck checkout spinner shows up within a few runs. Then `pnpm demo:fixed` serves the same
@@ -116,9 +114,7 @@ Terminal programs too: [`examples/buggy-cli`](examples/buggy-cli) is a todo list
 seeded bugs (a byte cut that prints U+FFFD, a double-counted status line, a crash on position 0).
 `pnpm demo:cli` finds all three in 45 seconds with no browser; `pnpm demo:cli:fixed` stays silent.
 
-**It found a bug we did not plant.** The first "fixed" build still failed `cartTotalAddsUp`:
-Bombadil typed a huge quantity, the line amount overflowed JavaScript's safe integers, and the
-total stopped matching its lines. No one had written that test. The property did not need anyone to.
+---
 
 ## Catch a weakened test
 
@@ -137,6 +133,9 @@ Make it automatic: `guard-hook.mjs` blocks an agent's stop hook once when tests 
 so the agent has to restore them or justify each one before it can finish. One entry in your
 agent's hook settings, or a git pre-commit hook; see [docs/HOOKS.md](docs/HOOKS.md).
 
+<details>
+<summary>Wire the guard into a Claude Code Stop hook</summary>
+
 ```json
 {
 	"hooks": {
@@ -144,6 +143,10 @@ agent's hook settings, or a git pre-commit hook; see [docs/HOOKS.md](docs/HOOKS.
 	}
 }
 ```
+
+</details>
+
+---
 
 ## What we measured
 
@@ -161,6 +164,27 @@ their suites with the bundled mutation tester ([full results](evals/results/2026
   That took about twice the wall time.
 - So the claim is evidence first: every green suite comes with proof that it can fail, gaps get
   closed where there is headroom, and the scripts check any author's tests in CI or a hook.
+
+<details>
+<summary>Research and reports behind the problem</summary>
+
+Your agent says the suite is green. That claim is cheap:
+
+- **Agents over-mock.** In agent-authored commits, 36% of test commits add mocks, against 26%
+  for humans, and agents reach for plain mocks 95% of the time
+  ([MSR 2026](https://arxiv.org/abs/2602.00409v1)).
+- **Coverage lies.** LLM-written tests on a large industrial codebase reached a 25.2% mutation
+  score: most of the lines they "covered" could be broken without a single failure
+  ([ESEM 2026](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ESEM.2026.95)).
+- **Tests get bent to pass.** Developers report agents rewriting a failing test so that the wrong
+  result counts as a pass ([HN](https://news.ycombinator.com/item?id=43307809)), and calling a
+  failure "preexisting" to move on ([HN](https://news.ycombinator.com/item?id=47660925)).
+- **Nobody scripts the weird paths.** End-to-end tests check the flows someone wrote down. The
+  bugs live in the ones nobody did.
+
+</details>
+
+---
 
 ## All skills
 
@@ -180,7 +204,8 @@ their suites with the bundled mutation tester ([full results](evals/results/2026
 | Triage  | [`test-flaky`](skills/test-flaky/SKILL.md)                     | A measured failure rate, a named source and a proven fix                      |
 | Triage  | [`test-findings`](skills/test-findings/SKILL.md)               | Findings reproduced, shrunk, classified and pinned by regression tests        |
 
-Prompts to try:
+<details>
+<summary>Prompts to try with your agent</summary>
 
 ```text
 test-audit The agent added 30 tests in this branch. Find the ones that cannot fail,
@@ -192,6 +217,10 @@ Run the defaults for two minutes and fix anything that fails on a healthy build.
 test-e2e-to-bombadil Read our Playwright suite and lift every assertion that is really a rule
 into a Bombadil property. Keep path facts in the scripts.
 ```
+
+</details>
+
+---
 
 ## Install
 
