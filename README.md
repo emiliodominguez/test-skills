@@ -1,17 +1,58 @@
+<p align="center">
+  <img src="docs/assets/test-skills-banner.webp" alt="A robotic test investigator discovers a bug hiding beneath a green checkmark in a testing laboratory." width="100%" />
+</p>
+
 # test-skills
 
-**Tests that can fail.** Agent Skills that stop coding agents from writing tests that test
-nothing, catch them when they weaken tests to get green, and let
-[Bombadil](https://github.com/antithesishq/bombadil) find the bugs nobody wrote a test for.
+### Tests that can fail.
+
+Agent Skills for coding agents that **prove tests catch bugs**, **flag weakened assertions**, and
+**explore the paths nobody scripts** with [Bombadil](https://github.com/antithesishq/bombadil).
 
 [![Agent Skills: spec compliant](https://img.shields.io/badge/Agent%20Skills-spec%20compliant-8250df?style=for-the-badge&labelColor=161b22&logo=bookstack&logoColor=white)](https://agentskills.io/specification)
 [![Agents: any](https://img.shields.io/badge/agents-any-0969da?style=for-the-badge&labelColor=161b22&logo=probot&logoColor=white)](https://github.com/vercel-labs/skills)
 [![Install: npx skills add](https://img.shields.io/badge/npx-skills%20add-cb3837?style=for-the-badge&labelColor=161b22&logo=npm&logoColor=white)](https://skills.sh)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3da639?style=for-the-badge&labelColor=161b22&logo=opensourceinitiative&logoColor=white)](LICENSE)
 
+**[Quick start](#quick-start)** · **[Choose a skill](#start-with-your-risk)** · **[Watch it find bugs](#see-it-find-bugs)** · **[All 13 skills](#all-skills)** · **[Measured results](#what-we-measured)**
+
+> A green suite is a result. Show that it goes red when the code breaks.
+
+## Quick start
+
 ```sh
 npx skills add emiliodominguez/test-skills
 ```
+
+Pick your skills and agent during installation. Requires **Node.js 22.20+**.
+Using Codex or Claude Code? See the [agent-specific install options](#install).
+
+Start with the audit and guard if you already have a suite:
+
+```sh
+npx skills add emiliodominguez/test-skills --skill test-audit test-guard
+```
+
+Then ask your agent:
+
+```text
+Audit this branch's tests. Find assertions that cannot fail, mutation-check the
+behavior they claim to cover, and flag any tests weakened relative to main.
+```
+
+## Start with your risk
+
+| You want to...                  | Start here                                     | What you get                                                                   |
+| ------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Trust an existing green suite   | [test-audit](skills/test-audit/SKILL.md)       | Suspicious tests identified and behavior checked with mutants                  |
+| Stop tests getting bent to pass | [test-guard](skills/test-guard/SKILL.md)       | A diff report of deletions, skips, changed expectations and lowered thresholds |
+| Find bugs beyond scripted flows | [test-bombadil](skills/test-bombadil/SKILL.md) | Property-driven exploration with replayable traces                             |
+| Diagnose intermittent failures  | [test-flaky](skills/test-flaky/SKILL.md)       | A measured failure rate, an identified cause and a verified fix                |
+| Plan a suite from scratch       | [test-strategy](skills/test-strategy/SKILL.md) | Risks mapped to test layers, oracles and cadence                               |
+
+**13 skills. Four stages. An evidence trail.** Plan the risks, author the tests, explore the
+unexpected, and triage failures into reproducible regressions. The bundled scripts also run
+without an agent in CI or a pre-commit hook.
 
 ## The problem
 
@@ -56,17 +97,15 @@ pnpm install && pnpm demo
 
 One two-minute run (long typed strings shortened):
 
-```text
-| Property               | Verdict | Count | First step | After                                      |
-| ---------------------- | ------- | ----: | ---------: | ------------------------------------------ |
-| injectedTextStaysInert | stop    |   294 |         11 | type "\"><svg id=bmbxss onload=alert(1)>"  |
-| noBrokenValues         | stop    |    97 |         74 | type "--3"                                 |
-| emptyCartIsFree        | stop    |    58 |         37 | Click "button||Remove Stoneware mug|0"     |
-| noDuplicateIds         | stop    |    40 |        101 | type "<a id=bmbxss href=javascript:..."    |
-| noUncaughtExceptions   | stop    |    28 |         38 | Click "button||Apply|0"                    |
-| cartTotalAddsUp        | stop    |    16 |         25 | type "=]7oi&~u@Mr*$..."                    |
-| escapeClosesDialogs    | stop    |     8 |        287 | key 27                                     |
-```
+| Property               | Verdict | Count | First step | After                                     |
+| ---------------------- | ------- | ----: | ---------: | ----------------------------------------- |
+| injectedTextStaysInert | stop    |   294 |         11 | type "\"><svg id=bmbxss onload=alert(1)>" |
+| noBrokenValues         | stop    |    97 |         74 | type "--3"                                |
+| emptyCartIsFree        | stop    |    58 |         37 | Click "button                             |     | Remove Stoneware mug | 0"  |
+| noDuplicateIds         | stop    |    40 |        101 | type "<a id=bmbxss href=javascript:..."   |
+| noUncaughtExceptions   | stop    |    28 |         38 | Click "button                             |     | Apply                | 0"  |
+| cartTotalAddsUp        | stop    |    16 |         25 | type "=]7oi&~u@Mr*$..."                   |
+| escapeClosesDialogs    | stop    |     8 |        287 | key 27                                    |
 
 Exploration is random: a single two-minute run usually finds five or six of the six seeded bugs,
 and the stuck checkout spinner shows up within a few runs. Then `pnpm demo:fixed` serves the same
