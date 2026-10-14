@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Broader scope: skills for every kind of testing. New `test-component`, `test-integration`,
+  `test-accessibility`, `test-visual`, `test-performance` and `test-llm`, each with evidence that
+  runs here (a seeded bug caught by the recommended test, the fix passing).
+- Tool-agnostic exploration: `test-bombadil`, `test-bombadil-spec` and `test-e2e-to-bombadil`
+  merge into `test-explore`, with drivers for Bombadil, fast-check + Playwright (new kit:
+  `assets/fast-check-explore.mjs`) and Hypothesis + Playwright, all verified on the demo shop.
+- `test-properties` covers property-based testing in depth: libraries per language, metamorphic,
+  differential and model-based tests, generators, fuzzing; five property shapes proven in
+  `test/properties-examples.test.ts`.
+- `test-strategy` routes every risk to a test type and ships a catalog of test types.
+- `test-e2e` gains driver selection for web, desktop and mobile.
+- New profiles: `frontend`, `backend`, `generative`, `ai`; `bombadil` is replaced by `generative`.
+- `test-guard` recognizes `__screenshots__/`, `.loki/reference/` and `bitmaps_reference/` baselines.
+- `pnpm verify` runs `scripts/verify-examples.mjs` (accessibility and visual evidence) and the
+  fast-check demo.
 - Codex: `agents/openai.yaml` per skill, a `.codex-plugin/` manifest and
   `.agents/plugins/marketplace.json`, Codex hook docs, and `scripts/codex-check.mjs` (19 checks
   against the real CLI, including its sandboxes). `mutate.mjs` and `repeat.mjs` fail cleanly or

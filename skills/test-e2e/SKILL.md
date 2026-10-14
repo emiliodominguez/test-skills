@@ -1,6 +1,6 @@
 ---
 name: test-e2e
-description: "Scripted end-to-end tours of critical user paths in a browser or desktop shell. Use when writing or stabilizing E2E tests, removing sleeps, or proving a UI flow works. Hands off to `test-bombadil` for unscripted paths or `test-findings` for failures."
+description: "Scripted end-to-end tours of critical user paths in a browser, desktop shell or mobile app. Use when writing or stabilizing E2E tests or removing sleeps. Hands off to `test-explore` for unscripted paths or `test-findings`."
 metadata:
   stage: author
 ---
@@ -9,6 +9,14 @@ metadata:
 
 A tour drives the built application through one path a person would take and asserts what the
 person would see. It proves the paths you know; exploration covers the rest.
+
+## Pick the driver
+
+Use the one the repository has. Otherwise: Playwright for web and Electron (cross-browser,
+auto-waiting, traces), Cypress where the team already runs it, WebdriverIO or Selenium for
+browser grids and legacy stacks; for mobile, Maestro for flow files, Detox for React Native,
+Espresso and XCUITest for native suites, Appium across both. Read
+[references/drivers.md](references/drivers.md) for the trade-offs and the waiting model of each.
 
 ## Process
 
@@ -30,7 +38,8 @@ person would see. It proves the paths you know; exploration covers the rest.
 7. **Keep evidence.** Screenshots at key states into a per-tour output folder for review. Capture
    console errors from the page and fail on unexpected ones.
 8. **Cover the matrix that breaks layouts.** The narrowest and a common desktop width, light and
-   dark themes, and print media where the app prints.
+   dark themes, and print media where the app prints. Keyboard-only and screen reader checks of
+   the same path belong to `test-accessibility`.
 9. **Prove it bites.** Run the tour against the old behavior (a baseline switch that swaps the
    old handler without editing production code, or a temporary revert) and see it fail.
 
@@ -54,7 +63,8 @@ missing coverage.
 - Asserting that a heading exists instead of the result of the action.
 - Tours sharing one database or depending on each other's order.
 - Retries that hide a race, or sleeps without the event they stand in for.
-- Pixel diffs on unstable fonts and data, or screenshots nobody looks at used as assertions.
+- Pixel diffs on unstable fonts and data (use `test-visual`), or screenshots nobody looks at used
+  as assertions.
 
 ## Done when
 
@@ -62,4 +72,4 @@ missing coverage.
 - It passes repeatedly from a clean state, headless, with the command recorded.
 - Remaining sleeps and known gaps are listed with the event or fix they await.
 
-Explore the unscripted paths with `test-bombadil`; triage a failing tour with `test-findings`.
+Explore the unscripted paths with `test-explore`; triage a failing tour with `test-findings`.

@@ -1,6 +1,6 @@
 ---
 name: test-findings
-description: "Triage of findings from property-based exploration, fuzzing, fault injection or flaky tests: reproduce, confirm, shrink, classify and pin. Use when a property is violated, a run fails or a test fails intermittently. Hands back to `test-bombadil-spec` or `test-unit`."
+description: "Triage of findings from exploration, fuzzing, fault injection or flaky tests: reproduce, confirm, shrink, classify and pin. Use when a property is violated or a run fails. Hands back to `test-explore` or `test-unit`."
 metadata:
   stage: triage
 ---
@@ -66,4 +66,4 @@ failure to block on. Re-save a baseline only when the cause is understood.
   silent on a covering run.
 - Unfixed findings are in the policy with a reason and expiry, or listed as open.
 
-Hand back to `test-bombadil-spec` to correct a property, or to `test-unit` to pin the bug.
+Hand back to `test-explore` to correct a property, or to `test-unit` to pin the bug.

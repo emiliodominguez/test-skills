@@ -1,8 +1,30 @@
 {
 	"profiles": {
-		"core": ["test-strategy", "test-unit", "test-e2e", "test-audit", "test-guard", "test-flaky", "test-findings"],
-		"bombadil": ["test-strategy", "test-bombadil", "test-bombadil-spec", "test-e2e-to-bombadil", "test-findings"],
+		"core": [
+			"test-strategy",
+			"test-unit",
+			"test-component",
+			"test-integration",
+			"test-e2e",
+			"test-audit",
+			"test-guard",
+			"test-flaky",
+			"test-findings"
+		],
+		"frontend": [
+			"test-strategy",
+			"test-component",
+			"test-e2e",
+			"test-accessibility",
+			"test-visual",
+			"test-performance",
+			"test-explore",
+			"test-findings"
+		],
+		"backend": ["test-strategy", "test-unit", "test-integration", "test-properties", "test-performance", "test-security", "test-findings"],
+		"generative": ["test-properties", "test-explore", "test-findings"],
 		"honesty": ["test-audit", "test-guard", "test-flaky"],
-		"hardening": ["test-policy", "test-security", "test-properties", "test-findings"]
+		"hardening": ["test-policy", "test-security", "test-properties", "test-findings"],
+		"ai": ["test-strategy", "test-llm", "test-unit", "test-flaky", "test-findings"]
 	}
 }

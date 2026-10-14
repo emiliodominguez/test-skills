@@ -20,7 +20,9 @@ validates skills, `src/core/distribution.ts` checks profiles and manifests.
 
 Run `pnpm check` before committing (format check, typecheck, validate, tests). Run `pnpm smoke`
 for install script or manifest changes; it needs npm registry access. `pnpm verify` adds the
-Bombadil demos, the install smoke test and `pnpm codex` (the real Codex CLI, no model needed). CI is manual-only (no Actions minutes): never rely on it.
+browser evidence (`scripts/verify-examples.mjs`), the exploration demos, the install smoke test and
+`pnpm codex` (the real Codex CLI, no model needed). CI is manual-only (no Actions minutes): never
+rely on it.
 After changing a bundled script, run `pnpm dogfood` (mutation testing of the scripts with
 `mutate.mjs`, slow) and kill the survivors that matter with tests, not by lowering the floor.
 
@@ -36,6 +38,10 @@ After changing a bundled script, run `pnpm dogfood` (mutation testing of the scr
   triggers, and end with a handoff clause (`Hands off to`, `Hands back to`, `Routes to`, `Feeds`).
 - Every skill needs markers in `evals/beats.json` and four should prompts plus three near misses
   in `evals/triggers.json`.
+- A claim about a technique needs evidence: a module with a seeded bug and its fixed variant, and
+  a test (`test/<topic>-examples.test.ts`) or a browser check (`examples/<topic>/verify.mjs`) that
+  asserts the bug is caught and the fix passes. Say in the skill what was not run.
+- The combined descriptions stay under 4,000 characters; check the total `pnpm validate` prints.
 - `agents/openai.yaml` in each skill is the one host-specific adapter file (Codex display name,
   short description and a `$skill` default prompt); `pnpm validate` checks it. Keep host syntax there,
   never in `SKILL.md`.

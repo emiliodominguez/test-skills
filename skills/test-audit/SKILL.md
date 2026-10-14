@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: "Audit of tests that cannot fail: no assertions, tautologies, mocks of the unit, skips, sleeps, then mutants to prove the rest bite. Use when reviewing agent-written tests, suspecting fake coverage or before trusting a green suite. Hands off to `test-unit` or `test-guard`."
+description: "Audit of tests that cannot fail: no assertions, tautologies, mocks of the unit, skips, sleeps, then mutants to prove the rest bite. Use when reviewing agent-written tests or before trusting a green suite. Hands off to `test-unit` or `test-guard`."
 metadata:
   stage: triage
 ---

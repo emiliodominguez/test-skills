@@ -58,32 +58,6 @@
 				"Find memory leaks while clicking around the app."
 			]
 		},
-		"test-bombadil": {
-			"should": [
-				"Set up Bombadil for our web app.",
-				"Run Bombadil against the Electron app through the DevTools port.",
-				"Schedule nightly property-based UI exploration in CI.",
-				"Bombadil hangs and its replays diverge; make the runs reproducible."
-			],
-			"near": [
-				"Write a Bombadil property that totals add up.",
-				"Write a Playwright test for the cart.",
-				"Add property-based tests for the parser with fast-check."
-			]
-		},
-		"test-bombadil-spec": {
-			"should": [
-				"Write a Bombadil property that the cart total matches the line items.",
-				"Add an action generator so Bombadil can finish the checkout flow.",
-				"Our Bombadil typing does not replay; fix the generators.",
-				"Add a property that spinners always disappear within 10 seconds."
-			],
-			"near": [
-				"Install Bombadil and run it in CI.",
-				"Shrink this Bombadil trace to the minimal steps.",
-				"Write an e2e test for the cart total."
-			]
-		},
 		"test-findings": {
 			"should": [
 				"Bombadil reported cartTotalAddsUp was violated; is it a real bug?",
@@ -137,14 +111,96 @@
 				"Find assertion-less tests in the suite."
 			]
 		},
-		"test-e2e-to-bombadil": {
+		"test-explore": {
 			"should": [
-				"Turn our Playwright tests into Bombadil properties.",
-				"We have Cypress tests; can Bombadil reuse what they check?",
-				"Convert the checkout e2e assertions into invariants for exploration.",
-				"Which of our e2e assertions should become Bombadil properties?"
+				"Set up Bombadil for our web app and run it nightly.",
+				"Explore our React app with random clicks and typing to find crashes nobody scripted.",
+				"Add a property that the cart total always matches the line items, checked on every path.",
+				"Turn our Playwright assertions into rules that hold on every path, with fast-check model-based UI tests."
 			],
-			"near": ["Write a new Playwright test for checkout.", "Install Bombadil and run it in CI.", "Fix the flaky Playwright test."]
+			"near": [
+				"Write a Playwright test for the checkout flow.",
+				"Add property-based tests for the date parser with fast-check.",
+				"Shrink this failing trace and decide whether it is a real bug."
+			]
+		},
+		"test-component": {
+			"should": [
+				"Write tests for the CouponForm React component.",
+				"Our component tests use getByTestId and fireEvent everywhere; make them test real behavior.",
+				"This Vitest test logs 'not wrapped in act(...)' warnings; fix it.",
+				"Test the loading, empty and error states of the invoice list using MSW."
+			],
+			"near": [
+				"Write a Playwright tour for the checkout flow.",
+				"Audit the whole checkout page for WCAG issues with a screen reader.",
+				"Add property-based tests for the price formatter."
+			]
+		},
+		"test-visual": {
+			"should": [
+				"Add screenshot tests for our design system components.",
+				"Our toHaveScreenshot tests fail on CI but pass locally; make them stable.",
+				"Set up visual regression testing with Storybook.",
+				"Which pixel diff threshold should we use so a 4px shift still fails?"
+			],
+			"near": [
+				"Check that the page has no horizontal overflow on every screen.",
+				"Write a Playwright test that the checkout total is correct.",
+				"Make the hero image load faster."
+			]
+		},
+		"test-integration": {
+			"should": [
+				"Our repository tests mock the Postgres client; write integration tests that run against a real database with Testcontainers.",
+				"Add a test proving this migration keeps existing data when it runs on production-like rows.",
+				"Set up Pact or schema contract tests between the orders service and the billing service.",
+				"Test how our payment client behaves when the provider times out, returns 503 or loses the response after charging."
+			],
+			"near": [
+				"Write unit tests for this discount calculation function.",
+				"Write a Playwright test that signs in and completes checkout in the browser.",
+				"Load test the orders API at 500 requests per second."
+			]
+		},
+		"test-llm": {
+			"should": [
+				"Add evals for the ticket classifier prompt before we switch models.",
+				"Write tests for our RAG pipeline's retrieval and answer faithfulness.",
+				"Set up an LLM-as-judge to score chatbot replies and gate prompt changes.",
+				"Test the agent's tool calls and make sure retries don't double-charge."
+			],
+			"near": [
+				"Measure why this test fails 1 in 20 runs in CI.",
+				"Write unit tests for the invoice total calculator.",
+				"Add property-based tests for the JSON parser."
+			]
+		},
+		"test-performance": {
+			"should": [
+				"The orders page got slow after the last change; add a test that catches it.",
+				"Write a k6 load test for the checkout API with p95 and p99 thresholds.",
+				"Add a test that fails if the order loader starts doing N+1 queries.",
+				"Set up Lighthouse CI and bundle-size budgets for the storefront."
+			],
+			"near": [
+				"This test fails intermittently in CI; find out why.",
+				"Add property-based tests for the sort function.",
+				"Write an end-to-end test for the checkout flow."
+			]
+		},
+		"test-accessibility": {
+			"should": [
+				"Add a11y tests to the checkout page; we need WCAG 2.2 AA.",
+				"Our modal can't be closed with Escape and focus escapes it; write tests for that.",
+				"Set up axe scans in our Playwright suite without failing on the existing violations.",
+				"What should we check manually with a screen reader before the release?"
+			],
+			"near": [
+				"The screenshot diff of the header flakes in CI.",
+				"Write a component test for the address form's validation messages.",
+				"Lighthouse says our page is slow; add a performance budget."
+			]
 		}
 	}
 }

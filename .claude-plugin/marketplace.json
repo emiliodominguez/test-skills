@@ -7,7 +7,7 @@
 	"plugins": [
 		{
 			"name": "test-skills",
-			"description": "Tests that can fail: audit and guard agent-written tests, mutation checks, flakiness, Bombadil exploration and finding triage.",
+			"description": "Tests that can fail: skills for every kind of testing, from unit and property-based to exploration, accessibility, visual, performance and LLM evals, plus audit, guard and mutation checks.",
 			"source": "./",
 			"category": "development"
 		}

@@ -1,18 +1,51 @@
 {
 	"$comment": "Short lowercase substrings each SKILL.md must keep. They catch accidental wording loss, not behavior.",
 	"skills": {
-		"test-strategy": ["assign a layer per risk", "pick the oracle", "split measuring from deciding", "maintenance contract"],
+		"test-strategy": ["assign a test type and layer per risk", "pick the oracle", "split measuring from deciding", "maintenance contract"],
 		"test-unit": ["collect offenders, expect empty", "seed once, clone per test", "real-protocol fakes", "exhaustiveness at compile time"],
 		"test-e2e": ["fence side effects", "wait on observable readiness", "prove it bites", "no blind retries"],
 		"test-policy": ["collect offenders", "allowlists explicit", "assert the scanned set is non-empty", "compiler api"],
 		"test-security": ["authorization matrix", "hostile variants", "replay safety", "golden updates are security reviews"],
-		"test-bombadil": ["exit codes", "test-external", "build the harness", "watchdog"],
-		"test-bombadil-spec": ["extract", "settles", "\"wait\"", "keep-going on a correct app"],
 		"test-findings": ["reproduce on a fresh environment", "shrink", "classify", "expiry date"],
 		"test-audit": ["audit-tests.mjs", "mutate.mjs", "prove the rest bite", "audit-tests-ignore"],
 		"test-guard": ["guard-tests.mjs", "resolve every error", "read every changed expectation", "justification"],
 		"test-flaky": ["measure before touching anything", "repeat.mjs", "classify the source", "never hide it behind a retry"],
-		"test-properties": ["round trip", "shrunk counterexample", "deliberately wrong implementation", "model-based testing"],
-		"test-e2e-to-bombadil": ["classify each assertion", "path facts", "workflow generators", "verify the lift"]
+		"test-properties": ["round trip", "shrunk counterexample", "deliberately wrong implementation", "model-based testing", "metamorphic"],
+		"test-explore": ["choose a driver", "harness first", "silent, reached and able to fail", "resolve targets when the action runs"],
+		"test-component": [
+			"query like a person",
+			"fake the network, not the unit",
+			"prove each test bites",
+			"an act warning is a race",
+			"wait on what appears"
+		],
+		"test-visual": [
+			"make rendering deterministic before recording anything",
+			"prove determinism",
+			"update only through reviewed diffs",
+			"budget the matrix"
+		],
+		"test-integration": [
+			"transaction per test, rolled back",
+			"test migrations on data, not on an empty schema",
+			"tolerant readers",
+			"idempotency key",
+			"wait on conditions, never on time"
+		],
+		"test-llm": [
+			"split the feature at the model call",
+			"script by what was sent",
+			"gate on per-case flips",
+			"measure the noise floor",
+			"test retrieval and generation separately"
+		],
+		"test-performance": ["scaling ratio", "coordinated omission", "fastest of 15", "split measuring from deciding", "same-machine baselines"],
+		"test-accessibility": [
+			"scan every state",
+			"baseline existing debt",
+			"press real keys",
+			"from the accessibility tree, not attributes",
+			"prove each check bites"
+		]
 	}
 }

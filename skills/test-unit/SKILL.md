@@ -1,6 +1,6 @@
 ---
 name: test-unit
-description: "High-signal unit and in-process flow tests. Use when testing domain logic, parsers, validators, failure mapping or service flows, or replacing mock-heavy tests. Hands off to `test-policy` for repository rules or `test-e2e` for UI paths."
+description: "High-signal unit and in-process flow tests. Use when testing domain logic, parsers, validators or service flows, or replacing mock-heavy tests. Hands off to `test-properties` or `test-integration`."
 metadata:
   stage: author
 ---
@@ -17,9 +17,8 @@ process.
    the repository already has before writing new ones.
 2. Choose the shape:
    - **Pure rule:** a table of inputs and expected outputs, co-located with the code.
-   - **Property over many inputs:** a table, or a small exhaustive generator (every single-digit
-     change of a valid code, every transposition). A property-based library is a dependency;
-     ask before adding one.
+   - **Property over many inputs:** a small exhaustive generator (every single-digit change of a
+     valid code, every transposition), or a property-based test with shrinking (`test-properties`).
    - **Boundary:** one test per boundary proving invalid input is rejected before any service runs.
    - **Typed failures:** every failure kind gets a test proving it maps to the right response code.
    - **Flow:** an in-memory system through the real router or dispatcher, with fakes that speak
@@ -71,4 +70,4 @@ process.
 - Runner output is recorded with the command and the discovered test count.
 - Gaps (no fake for a service, an untestable boundary) are listed with the next action.
 
-Continue with `test-policy` for repository rules, or `test-e2e` when the risk lives in the UI.
+Continue with `test-properties` for wide input spaces, `test-integration` when the risk lives in a real dependency, `test-component` or `test-e2e` when it lives in the UI, and `test-policy` for repository rules.

@@ -1,7 +1,7 @@
 {
 	"name": "test-skills",
 	"displayName": "Test Skills",
-	"description": "Tests that can fail: audit and guard agent-written tests, mutation checks, flakiness, Bombadil exploration and finding triage.",
+	"description": "Tests that can fail: skills for every kind of testing, from unit and property-based to exploration, accessibility, visual, performance and LLM evals, plus audit, guard and mutation checks.",
 	"version": "0.2.0",
 	"author": {
 		"name": "Emilio Dominguez"
@@ -9,5 +9,18 @@
 	"homepage": "https://github.com/emiliodominguez/test-skills",
 	"repository": "https://github.com/emiliodominguez/test-skills",
 	"license": "MIT",
-	"keywords": ["agent-skills", "bombadil", "e2e", "mutation-testing", "property-based-testing", "skills", "test-quality", "testing"]
+	"keywords": [
+		"accessibility",
+		"agent-skills",
+		"bombadil",
+		"e2e",
+		"fast-check",
+		"llm-evals",
+		"mutation-testing",
+		"property-based-testing",
+		"skills",
+		"test-quality",
+		"testing",
+		"visual-regression"
+	]
 }

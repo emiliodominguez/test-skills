@@ -4,8 +4,8 @@ What to post, where, and the claims each post can back with something a reader c
 
 ## Positioning
 
-- One line: **Tests that can fail.** Agent Skills that catch fake and weakened tests, and let
-  Bombadil find the bugs nobody scripted.
+- One line: **Tests that can fail.** Agent Skills for every kind of testing, each with a seeded bug
+  that proves the recommended test catches it, plus tools that catch fake and weakened tests.
 - The enemy is the green suite that proves nothing, not testing frameworks or other skills.
 - Every claim links to a command in this repository that reproduces it.
 
@@ -19,10 +19,15 @@ What to post, where, and the claims each post can back with something a reader c
 | The audit has no false positives on a 199-file production suite                                                                                       | Run `audit-tests.mjs` on any well-maintained suite and compare                          |
 | On small fixtures a frontier model already writes strong tests; on a 77-mutant module the skill arms closed the gaps plain arms left (100% vs 97-99%) | `evals/results/2026-10-12-agent-tests.md`                                               |
 | First Agent Skills for Bombadil                                                                                                                       | No other Bombadil skill or server found on skills.sh or GitHub at launch                |
+| Exploration is tool-agnostic: Bombadil, fast-check and Hypothesis find the same seeded bugs                                                           | `pnpm demo`, `pnpm demo:fc`, `examples/buggy-shop/hypothesis`                           |
+| An accessibility scan alone misses keyboard bugs: axe reports zero violations on a page with nine                                                     | `node examples/accessibility/verify.mjs`                                                |
+| An eval average hides regressions: 80% before and after, two cases broken                                                                             | `npx vitest run test/llm-examples.test.ts`                                              |
+| A mocked database passes bugs a real one catches                                                                                                      | `npx vitest run test/integration-examples.test.ts`                                      |
+| Each property shape catches a bug its example test misses                                                                                             | `npx vitest run test/properties-examples.test.ts`                                       |
 
 ## Channels
 
-1. **Show HN.** Title: "Show HN: Agent skills that catch fake tests and let Bombadil find unscripted bugs".
+1. **Show HN.** Title: "Show HN: Agent skills for every kind of testing, each proving its test can fail".
    First comment: the problem in three lines, the demo table, the guard output, the eval table,
    and what it does not do.
 2. **X / Bluesky thread.** Post 1: the guard output on an agent-weakened test. Post 2: the demo
