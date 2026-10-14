@@ -33,7 +33,10 @@ function step(overrides: Record<string, unknown> = {}) {
  * @param overrides - Step fields to change.
  * @returns Property name to verdict.
  */
-function verdicts(overrides: Record<string, unknown> = {}, options: Parameters<typeof genericProperties>[0] = {}): Record<string, boolean | string> {
+function verdicts(
+	overrides: Record<string, unknown> = {},
+	options: Parameters<typeof genericProperties>[0] = {},
+): Record<string, boolean | string | null> {
 	return Object.fromEntries(
 		genericProperties(options).map(function judge(property) {
 			return [property.name, property.check(step(overrides) as Parameters<typeof property.check>[0])];

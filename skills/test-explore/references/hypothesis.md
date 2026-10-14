@@ -56,6 +56,7 @@ class Shop(RuleBasedStateMachine):
 
 ## Measured on the demo shop
 
-Sixty examples of twenty steps: five of the six seeded bugs reported as distinct failures, each
-shrunk to two or three steps, and the fixed build passed. The stuck spinner (five specific steps)
-was not reached at that budget; raise `max_examples` or add a checkout workflow rule for it.
+Sixty examples of twenty steps, the fixed build passing every time: all six seeded bugs reported
+as distinct failures in the latest run, and five of six (not the stuck spinner, which needs five
+specific steps) in two earlier runs, each shrunk to two or three steps. When a multi-step bug is
+missed, raise `max_examples` or add a workflow rule for that flow.

@@ -14,10 +14,12 @@ import {
 	CLICKABLE,
 	MODAL,
 	TYPEABLE,
+	defaultCommands,
 	explore,
 	genericProperties,
 	markCandidates,
 	readPage,
+	replay,
 } from "../../skills/test-explore/assets/fast-check-explore.mjs";
 
 /** Pages served by the check server, by path. */
@@ -68,6 +70,15 @@ const PAGES = {
 	</body>`,
 	"/external-only": `<!doctype html><body><p>Nothing to do here.</p><a href="https://example.com/">Elsewhere</a></body>`,
 	"/clean": `<!doctype html><body><button id="ok">OK</button><p>Fine</p></body>`,
+	"/routed": `<!doctype html><body><button id="go">Go</button><p id="out"></p>
+		<script>
+			document.getElementById("go").addEventListener("click", function load() {
+				fetch("/api/price").then(function read(response) { return response.json(); }).then(function show(body) {
+					document.getElementById("out").textContent = "Price " + body.price + " " + navigator.language;
+				});
+			});
+		</script>
+	</body>`,
 };
 
 /**
@@ -292,6 +303,84 @@ async function main() {
 			"a time limit that is not a number is rejected instead of reporting a clean run",
 			/timeLimitMs must be/u.test(rejected),
 			rejected || "accepted",
+		);
+
+		const routed = await short(browser, `${site.origin}/routed`, {
+			timeLimitMs: 8000,
+			contextOptions: { locale: "es-AR" },
+			setupPage: async function fakePrice(page) {
+				await page.route("**/api/price", function fulfill(route) {
+					return route.fulfill({ json: { price: "NaN" } });
+				});
+			},
+		});
+
+		claim(
+			"setupPage routes and contextOptions apply to every run (a faked price reaches the screen)",
+			routed.findings[0]?.property === "noBrokenValues",
+			routed.findings[0]?.message ?? "no finding",
+		);
+
+		const locale = await browser.newContext({ locale: "es-AR" });
+		const localePage = await locale.newPage();
+		const language = await localePage.evaluate(function lang() {
+			return navigator.language;
+		});
+
+		await locale.close();
+		claim("contextOptions such as locale reach the page", language === "es-AR", language);
+
+		const reachRun = await short(browser, `${site.origin}/clean`, {
+			timeLimitMs: 6000,
+			properties: [
+				{
+					name: "neverJudged",
+					check: function neverJudged() {
+						return null;
+					},
+				},
+				{
+					name: "alwaysJudged",
+					check: function alwaysJudged() {
+						return true;
+					},
+				},
+			],
+		});
+
+		claim(
+			"reach shows a property that never had data next to one that judged every step",
+			reachRun.reach.neverJudged?.judged === 0 &&
+				(reachRun.reach.neverJudged?.skipped ?? 0) > 0 &&
+				(reachRun.reach.alwaysJudged?.judged ?? 0) > 0,
+			JSON.stringify(reachRun.reach),
+		);
+
+		const changed = nan
+			? await replay(
+					{
+						browser,
+						url: `${site.origin}/two-clicks`,
+						properties: genericProperties(),
+						settleMs: 1500,
+						commands: defaultCommands({ waits: [5] }),
+					},
+					nan,
+				)
+			: null;
+
+		claim(
+			"replaying a finding under a different command set is refused instead of reporting it fixed",
+			changed !== null && changed.failed === false && /command set differs/u.test(changed.message),
+			changed?.message.slice(0, 60) ?? "no finding to replay",
+		);
+
+		const same = nan ? await replay({ browser, url: `${site.origin}/two-clicks`, properties: genericProperties(), settleMs: 1500 }, nan) : null;
+
+		claim(
+			"replaying a finding under the same command set runs the same actions and fails again",
+			same !== null && same.failed && same.sameActions === true && nan?.shrinkInterrupted === false,
+			same ? `failed=${same.failed}, sameActions=${same.sameActions}, shrinkInterrupted=${nan?.shrinkInterrupted}` : "no finding to replay",
 		);
 
 		const clean = await short(browser, `${site.origin}/clean`, { timeLimitMs: 8000 });

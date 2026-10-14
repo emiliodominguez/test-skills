@@ -68,9 +68,14 @@ scripted. Exploration needs a running UI; for model-based tests of code without 
    machines; gate everything behind sign-in and keep random typing out of credential fields.
    Weight action kinds rather than filtering by history, and always include a wait.
 5. **Prove each property silent, reached and able to fail.** Run it on a correct build with
-   keep-going for 3-5 minutes: no violation, and the run reached the screen it judges. Then break
-   the app on purpose (revert a historical fix, flip a comparison) and confirm the property
-   catches it. A property that never saw its screen checked nothing.
+   keep-going for 3-5 minutes: no violation, and the run reached the screen it judges. Show reach
+   from the run, not from silence: the fast-check kit's report counts judged and skipped steps per
+   property (return `null` when not judgeable), a Bombadil spec declares a reach list checked in
+   the coverage report ([bombadil-campaigns.md](references/bombadil-campaigns.md)), and Hypothesis
+   records it with `event()`. Then break the app on purpose (revert a
+   historical fix, flip a comparison) and confirm the property catches it. A property that never
+   saw its screen checked nothing, and one that restates a generic property only reports the same
+   bug twice.
 6. **Set the cadence.** A short smoke (2-5 minutes, stop on first violation) per change if the
    budget allows; long scheduled campaigns across seeds, locales, viewports, roles and fault
    profiles. Record every run's seed and setup next to its output.
@@ -84,11 +89,13 @@ read [from-e2e.md](references/from-e2e.md).
 
 Three drivers explore `examples/buggy-shop` (six seeded bugs) with no scripted paths, and each
 stays silent on the fixed build: Bombadil (`pnpm demo`) finds five or six per two-minute run;
-fast-check (`pnpm demo:fc`) found all six in four of five four-minute runs and five in the other,
-each shrunk to one to five actions, including a stuck spinner reached by three adds, Checkout
-and Place order; Hypothesis found five in sixty examples. Two harness details decided those
-numbers: sequences long enough for five-step bugs, and a shrinking budget separate from the
-search budget.
+fast-check (`pnpm demo:fc`) found all six in six of seven four-minute runs and five in the
+other, each shrunk to one to five actions, including a stuck spinner reached by three adds,
+Checkout and Place order; Hypothesis found all six in sixty examples. The harness details that
+decided those numbers: sequences long enough for five-step bugs, a shrinking budget separate from
+the search budget, and modals and busy indicators detected the way the app renders them. On a
+second app, a stuck spinner behind the third "Load more" was reached only with a workflow command
+for paging.
 
 ## Anti-patterns
 

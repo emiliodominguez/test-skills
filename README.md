@@ -101,8 +101,8 @@ exploration drivers run against it with no scripted paths and no selectors for t
 | Driver                        | Budget      | Seeded bugs found                                                 | Fixed build |
 | ----------------------------- | ----------- | ----------------------------------------------------------------- | ----------- |
 | Bombadil 0.7.8                | 2 minutes   | 5 or 6 of 6 per run                                               | Silent      |
-| fast-check 4.10 + Playwright  | 4 minutes   | 6 of 6 in 4 of 5 runs, 5 in the other; each shrunk to 1-5 actions | Silent      |
-| Hypothesis 6.169 + Playwright | 60 examples | 5 of 6, each shrunk to 2-3 steps                                  | Passes      |
+| fast-check 4.10 + Playwright  | 4 minutes   | 6 of 6 in 6 of 7 runs, 5 in the other; each shrunk to 1-5 actions | Silent      |
+| Hypothesis 6.169 + Playwright | 60 examples | 6 of 6 in the latest run, 5 of 6 in two earlier ones              | Passes      |
 
 > **The unexpected find:** the first "fixed" build still has an integer-overflow bug. Bombadil
 > discovers it by entering a huge quantity and checking that the cart total matches its lines.

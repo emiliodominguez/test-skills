@@ -44,8 +44,8 @@ because nobody thought of it; the property did not need anyone to.
 
 ## Measured
 
-| Driver                        | Budget      | Seeded bugs found                                                          | Fixed build |
-| ----------------------------- | ----------- | -------------------------------------------------------------------------- | ----------- |
-| Bombadil 0.7.8                | 2 minutes   | 5 or 6 of 6 per run                                                        | Silent      |
-| fast-check 4.10 + Playwright  | 4 minutes   | 6 of 6 in 4 of 5 measured runs, 5 in the other; each shrunk to 1-5 actions | Silent      |
-| Hypothesis 6.169 + Playwright | 60 examples | 5 of 6 (not the five-step stuck spinner), each shrunk to 2-3 steps         | Passes      |
+| Driver                        | Budget      | Seeded bugs found                                                                      | Fixed build |
+| ----------------------------- | ----------- | -------------------------------------------------------------------------------------- | ----------- |
+| Bombadil 0.7.8                | 2 minutes   | 5 or 6 of 6 per run                                                                    | Silent      |
+| fast-check 4.10 + Playwright  | 4 minutes   | 6 of 6 in 6 of 7 measured runs, 5 in the other; each shrunk to 1-5 actions             | Silent      |
+| Hypothesis 6.169 + Playwright | 60 examples | 6 of 6 in the latest run; 5 of 6 (not the five-step stuck spinner) in two earlier ones | Passes      |

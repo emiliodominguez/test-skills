@@ -114,12 +114,14 @@ export const TYPEABLE = [
  */
 
 /**
- * A rule checked after every action. `check` returns true when it holds, or false or a message
- * when it does not. A check that throws counts as a violation of that property.
+ * A rule checked after every action. `check` returns true when it holds, false or a message when
+ * it does not, and null when the state cannot be judged yet (loading, the element absent): a null
+ * counts as skipped in the report's `reach`, so a property that never had data is visible. A check
+ * that throws counts as a violation of that property.
  *
  * @typedef {object} Property
  * @property {string} name - Name that reads as the rule.
- * @property {(step: Step) => boolean | string} check - The rule.
+ * @property {(step: Step) => boolean | string | null} check - The rule.
  */
 
 /**
@@ -133,6 +135,8 @@ export const TYPEABLE = [
  * @property {string} path - fast-check path; with the seed and replay path, replays the shrunk case.
  * @property {string} replayPath - fast-check replay path of the shrunk command sequence.
  * @property {boolean} reproduced - Whether replaying the shrunk case violated the same property again.
+ * @property {boolean} shrinkInterrupted - Whether the shrinking budget ran out, so the sequence may not be minimal.
+ * @property {string} fingerprint - Identifies the command set; a replay with a different set is meaningless.
  */
 
 /**
@@ -158,6 +162,15 @@ export const TYPEABLE = [
  * @property {number} actionTimeoutMs - Timeout for one Playwright action.
  * @property {string[]} log - Descriptions of the actions taken so far in this run.
  * @property {string[]} typed - Texts typed so far in this run.
+ * @property {Reach} reach - Judged and skipped counts per property, shared across runs.
+ * @property {(page: import("playwright-core").Page) => Promise<object>} extendModel - Extra model fields.
+ */
+
+/**
+ * How often each property had data to judge: `judged` steps returned a verdict, `skipped` steps
+ * returned null. A property with no judged steps checked nothing.
+ *
+ * @typedef {Record<string, { judged: number, skipped: number }>} Reach
  */
 
 /**
@@ -349,10 +362,18 @@ function check(real, current) {
 			throw new PropertyViolation(property.name, `check threw: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
+		const counts = (real.reach[property.name] ??= { judged: 0, skipped: 0 });
+
+		if (verdict === null) {
+			counts.skipped += 1;
+			continue;
+		}
+
+		counts.judged += 1;
 		if (verdict === true) continue;
 		if (verdict === false || typeof verdict === "string") throw new PropertyViolation(property.name, verdict === false ? "does not hold" : verdict);
 
-		throw new PropertyViolation(property.name, `check returned ${typeof verdict}; return true, false or a message (async checks are not supported)`);
+		throw new PropertyViolation(property.name, `check returned ${typeof verdict}; return true, false, a message or null (async checks are not supported)`);
 	}
 }
 
@@ -380,7 +401,7 @@ export async function runStep(model, real, description, perform) {
 	const settled = await settle(real.page, real.settleMs);
 	const after = await snapshot(real);
 
-	Object.assign(model, await targets(real.page));
+	Object.assign(model, await targets(real.page), await real.extendModel(real.page));
 	check(real, { action: description, before, after, ...newEvents(real), settled, typed: [...real.typed] });
 }
 
@@ -752,6 +773,7 @@ export function genericProperties(options = {}) {
  * @typedef {object} Budget
  * @property {number} until - Epoch milliseconds after which runs are skipped.
  * @property {number} ran - Sequences actually run.
+ * @property {Reach} reach - Judged and skipped counts per property during this budget's runs.
  */
 
 /**
@@ -787,7 +809,7 @@ function sequenceProperty(options, properties, budget, gate, replayPath) {
 		if (gate.mode === "after-first-fails" && calls > 1 && gate.firstPassed) return;
 		if (calls === 1) gate.firstLog = log;
 		budget.ran += 1;
-		await runSequence(options, properties, cmds, log);
+		await runSequence(options, properties, cmds, log, budget.reach);
 		if (calls === 1) gate.firstPassed = true;
 	});
 }
@@ -806,14 +828,17 @@ function sequenceProperty(options, properties, budget, gate, replayPath) {
  * @param {number} [options.maxCommands] - Longest sequence (default 40).
  * @param {"small" | "medium" | "large"} [options.sequenceSize] - Typical sequence length (default "medium"; multi-step bugs need it).
  * @param {number} [options.numRuns] - Sequences per round (default 200).
- * @param {number} [options.timeLimitMs] - Search budget (default 2 minutes).
+ * @param {number} [options.timeLimitMs] - Search budget (default 2 minutes); time spent shrinking and replaying does not count against it.
  * @param {number} [options.shrinkMs] - Shrinking budget per finding, on top of the search budget (default 2 minutes).
+ * @param {import("playwright-core").BrowserContextOptions} [options.contextOptions] - Options for each fresh context (viewport, locale, timezoneId, storageState).
+ * @param {(page: import("playwright-core").Page) => Promise<void>} [options.setupPage] - Runs before the page loads: routes, init scripts, fakes.
+ * @param {(page: import("playwright-core").Page) => Promise<object>} [options.extendModel] - Extra model fields read after each step, for workflow commands' `check(model)`.
  * @param {number} [options.settleMs] - Settle budget per action (default 3000).
  * @param {number} [options.actionTimeoutMs] - Timeout for one click, fill or select (default 1000).
  * @param {number} [options.seed] - Seed for the first round.
  * @param {boolean} [options.keepGoing] - Continue past the first finding.
  * @param {(finding: Finding) => void} [options.onFinding] - Called as each finding is shrunk.
- * @returns {Promise<{ findings: Finding[], runs: number, ms: number }>} Report; `runs` counts search sequences.
+ * @returns {Promise<{ findings: Finding[], runs: number, ms: number, seed: number, reach: Reach, fingerprint: string }>} Report; `runs` counts search sequences.
  */
 export async function explore(options) {
 	const timeLimitMs = options.timeLimitMs ?? 120_000;
@@ -821,10 +846,12 @@ export async function explore(options) {
 	if (!Number.isFinite(timeLimitMs) || timeLimitMs <= 0) throw new Error(`timeLimitMs must be a positive number of milliseconds, got ${options.timeLimitMs}`);
 
 	const started = Date.now();
-	const search = { until: started + timeLimitMs, ran: 0 };
+	const search = { until: started + timeLimitMs, ran: 0, reach: {} };
 	const findings = [];
 	const skipped = new Set();
-	let seed = options.seed ?? Date.now() % 2 ** 31;
+	const firstSeed = options.seed ?? Date.now() % 2 ** 31;
+	const commandSet = fingerprint(options);
+	let seed = firstSeed;
 
 	while (Date.now() < search.until) {
 		const active = options.properties.filter(function notFound(property) {
@@ -833,7 +860,8 @@ export async function explore(options) {
 
 		if (active.length === 0) break;
 
-		// Search until the first failure without shrinking, so the time limit bounds only the search.
+		// Search until the first failure without shrinking; the time spent shrinking and replaying is
+		// added back to the search deadline below, so the time limit bounds only the search.
 		const found = await fc.check(sequenceProperty(options, active, search, { mode: "all" }), { numRuns: options.numRuns ?? 200, seed, endOnFailure: true });
 
 		if (!found.failed) {
@@ -843,35 +871,81 @@ export async function explore(options) {
 
 		// Then shrink from that exact case with its own budget. If the case does not fail again on its
 		// first rerun, nothing else is run, so the shrink cannot wander to a different failure.
-		const shrinkBudget = { until: Date.now() + (options.shrinkMs ?? 120_000), ran: 0 };
+		const paused = Date.now();
+		const shrinkBudget = { until: paused + (options.shrinkMs ?? 120_000), ran: 0, reach: {} };
 		const shrunk = await fc.check(sequenceProperty(options, active, shrinkBudget, { mode: "after-first-fails" }), {
 			seed: found.seed,
 			path: found.counterexamplePath ?? undefined,
 		});
+		const shrinkInterrupted = Date.now() >= shrinkBudget.until;
 		const result = shrunk.failed ? shrunk : found;
 		const violation = result.errorInstance instanceof PropertyViolation ? result.errorInstance : null;
 		const property = violation?.property ?? "harness";
 		const replayPath = /replayPath="([^"]*)"/u.exec(String(result.counterexample?.[0] ?? ""))?.[1] ?? "";
 		const location = { seed: result.seed, path: result.counterexamplePath ?? "", replayPath };
-		const again = await replay(options, { ...location, property });
+		// A harness failure because the browser itself went away cannot be replayed; do not claim it.
+		const replayable = options.browser.isConnected();
+		const again = replayable
+			? await replay(options, { ...location, property })
+			: { failed: false, property: null, message: "browser closed", actions: gateLogFallback(result) };
 		const finding = {
 			property,
 			message: violation?.detail ?? String(result.errorInstance),
 			actions: again.actions,
 			...location,
 			reproduced: again.failed && again.property === property,
+			shrinkInterrupted,
+			fingerprint: commandSet,
 		};
 
+		search.until += Date.now() - paused;
 		findings.push(finding);
 		options.onFinding?.(finding);
-		if (!options.keepGoing || !violation) break;
+		if (!options.keepGoing || !violation || !replayable) break;
 		skipped.add(violation.property);
 		seed += 1;
 	}
 
 	if (search.ran === 0 && findings.length === 0) throw new Error("no sequence ran within the time limit; raise timeLimitMs");
 
-	return { findings, runs: search.ran, ms: Date.now() - started };
+	return { findings, runs: search.ran, ms: Date.now() - started, seed: firstSeed, reach: search.reach, fingerprint: commandSet };
+}
+
+/**
+ * Actions of a counterexample when it cannot be replayed: its commands' readable forms.
+ *
+ * @param {{ counterexample: unknown[] | null }} result - fast-check run details.
+ * @returns {string[]} Actions, best effort.
+ */
+function gateLogFallback(result) {
+	const commands = result.counterexample?.[0];
+
+	return commands && typeof commands === "object" && Symbol.iterator in commands ? Array.from(/** @type {Iterable<object>} */ (commands), String) : [];
+}
+
+/**
+ * Fingerprint of the command set: the first sequences it generates for a fixed seed. Adding,
+ * removing or reweighting a command changes it, and so does a kit upgrade that changes the
+ * defaults; a recorded seed and path only mean something under the same fingerprint.
+ *
+ * @param {Parameters<typeof explore>[0]} options - Exploration options.
+ * @returns {string} Fingerprint.
+ */
+export function fingerprint(options) {
+	const text = fc
+		.sample(sequences(options), { seed: 1, numRuns: 5 })
+		.map(function describe(cmds) {
+			return Array.from(cmds, String).join(",");
+		})
+		.join("|");
+	let hash = 2166136261;
+
+	for (let index = 0; index < text.length; index += 1) {
+		hash ^= text.charCodeAt(index);
+		hash = Math.imul(hash, 16777619) >>> 0;
+	}
+
+	return hash.toString(16).padStart(8, "0");
 }
 
 /**
@@ -879,16 +953,27 @@ export async function explore(options) {
  * finding's own property (all properties when it has none or was a harness failure).
  *
  * @param {Parameters<typeof explore>[0]} options - The options the finding was found with.
- * @param {{ seed: number, path: string, replayPath: string, property?: string }} finding - Location from the report.
- * @returns {Promise<{ failed: boolean, property: string | null, message: string, actions: string[] }>} Replay result.
+ * @param {{ seed: number, path: string, replayPath: string, property?: string, fingerprint?: string, actions?: string[] }} finding - A finding from the report.
+ * @returns {Promise<{ failed: boolean, property: string | null, message: string, actions: string[], sameActions: boolean | null }>} Replay
+ *   result; `sameActions` compares with the finding's recorded actions when it has them.
  */
 export async function replay(options, finding) {
+	if (finding.fingerprint && finding.fingerprint !== fingerprint(options)) {
+		return {
+			failed: false,
+			property: null,
+			message: "the command set differs from the one that recorded this finding (changed commands or kit version); its seed and path replay a different sequence",
+			actions: [],
+			sameActions: false,
+		};
+	}
+
 	const judged = options.properties.filter(function own(property) {
 		return property.name === finding.property;
 	});
 	const properties = judged.length > 0 ? judged : options.properties;
 	const gate = { mode: "first" };
-	const result = await fc.check(sequenceProperty(options, properties, { until: Number.POSITIVE_INFINITY, ran: 0 }, gate, finding.replayPath), {
+	const result = await fc.check(sequenceProperty(options, properties, { until: Number.POSITIVE_INFINITY, ran: 0, reach: {} }, gate, finding.replayPath), {
 		seed: finding.seed,
 		path: finding.path,
 		endOnFailure: true,
@@ -900,6 +985,7 @@ export async function replay(options, finding) {
 		property: result.failed ? (violation?.property ?? "harness") : null,
 		message: result.failed ? String(violation?.detail ?? result.errorInstance) : "no longer fails",
 		actions: gate.firstLog ?? [],
+		sameActions: finding.actions ? JSON.stringify(finding.actions) === JSON.stringify(gate.firstLog ?? []) : null,
 	};
 }
 
@@ -927,13 +1013,16 @@ function sequences(options, replayPath) {
  * @param {Property[]} properties - Properties to check.
  * @param {Iterable<object>} cmds - Generated commands.
  * @param {string[]} [log] - Receives the description of each action taken.
+ * @param {Reach} [reach] - Receives judged and skipped counts per property.
  * @returns {Promise<void>} Resolves when every step held.
  */
-async function runSequence(options, properties, cmds, log = []) {
-	const context = await options.browser.newContext();
+async function runSequence(options, properties, cmds, log = [], reach = {}) {
+	const context = await options.browser.newContext(options.contextOptions);
 
 	try {
 		const page = await context.newPage();
+
+		await options.setupPage?.(page);
 		const actionTimeoutMs = options.actionTimeoutMs ?? 1000;
 		const real = {
 			page,
@@ -949,6 +1038,12 @@ async function runSequence(options, properties, cmds, log = []) {
 			actionTimeoutMs,
 			log,
 			typed: [],
+			reach,
+			extendModel:
+				options.extendModel ??
+				async function noExtension() {
+					return {};
+				},
 		};
 
 		page.setDefaultTimeout(Math.max(5000, actionTimeoutMs * 5));
@@ -979,7 +1074,7 @@ async function runSequence(options, properties, cmds, log = []) {
 		// The first state is judged too: errors during load must not vanish before the first action.
 		check(real, { action: "load page", before: loaded, after: loaded, ...newEvents(real), settled, typed: [] });
 
-		const model = await targets(page);
+		const model = { ...(await targets(page)), ...(await real.extendModel(page)) };
 
 		await fc.asyncModelRun(function setup() {
 			return { model, real };

@@ -86,7 +86,8 @@ export const cartTotalAddsUp = {
 				return line === null;
 			})
 		) {
-			return true;
+			// Not judgeable (a coupon applies, or a line is mid-edit): counted as skipped in the reach report.
+			return null;
 		}
 
 		const sum = cart.lines.reduce(function add(acc, line) {
@@ -212,10 +213,12 @@ async function main(argv) {
 		});
 
 		if (options.json) console.log(JSON.stringify({ build: options.fixed ? "fixed" : "bugs", ...report }, null, "\t"));
-		else
+		else {
 			console.log(
-				`\n${report.findings.length} finding(s) in ${report.runs} sequences, ${Math.round(report.ms / 1000)} s (${options.fixed ? "fixed build" : "with bugs"}).`,
+				`\n${report.findings.length} finding(s) in ${report.runs} sequences, ${Math.round(report.ms / 1000)} s (${options.fixed ? "fixed build" : "with bugs"}, seed ${report.seed}).`,
 			);
+			console.log(`cartTotalAddsUp reach: ${JSON.stringify(report.reach.cartTotalAddsUp ?? { judged: 0, skipped: 0 })}`);
+		}
 
 		// A harness failure is not a finding about the app: exit 1, like a broken run.
 		if (
