@@ -8,3 +8,5 @@ bombadil-output/
 out/
 .hypothesis/
 __pycache__/
+# Crash-recovery record of an in-progress mutation run (mutate.mjs)
+*.mutate-backup.json

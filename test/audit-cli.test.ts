@@ -4,7 +4,18 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
-import { auditFile, auditJs, collectFiles, formatReport, maskJs, regexLiteralEnd } from "../skills/test-audit/scripts/audit-tests.mjs";
+import {
+	auditConfig,
+	auditFile,
+	auditGo,
+	auditJs,
+	auditPython,
+	collectFiles,
+	findJsTests,
+	formatReport,
+	maskJs,
+	regexLiteralEnd,
+} from "../skills/test-audit/scripts/audit-tests.mjs";
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills/test-audit/scripts/audit-tests.mjs");
 const temporary: string[] = [];
@@ -188,5 +199,103 @@ describe("checks of newer test kinds", function newerKinds() {
 		expect(rulesOf(auditFile("test_p.py", "@settings(max_examples=2)\n@given(st.integers())\ndef test_p(n):\n    assert f(n) >= 0\n"))).toEqual([
 			"tiny-budget",
 		]);
+	});
+});
+
+describe("exact masking at comment, string and regex boundaries", function exactMasking() {
+	test.each([
+		["a line comment at the end of the file, with no newline", "x // c", "x     "],
+		["an empty block comment", "/**/x", "    x"],
+		["a block comment followed by code", "/* a */x", "       x"],
+		["an unterminated block comment", "x /* a", "x     "],
+		["a division next to a string", "y = a / b; 'q'", "y = a / b; ' '"],
+		["two strings back to back", `f('a',"b")`, `f(' '," ")`],
+		["a string followed by a comment", "'a'// c", "' '    "],
+		["an unterminated string at the end of the file", "x 'ab", "x '  "],
+	])("%s", function masks(_name, source, masked) {
+		expect(maskJs(source)).toBe(masked);
+	});
+
+	test("a slash after a keyword starts a regex; after a closing parenthesis it divides", function slashes() {
+		expect(regexLiteralEnd("return /a'b/", 7)).toBe(12);
+		expect(regexLiteralEnd("x = typeof /a/", 11)).toBe(14);
+		expect(regexLiteralEnd("(a) / 2", 4)).toBe(-1);
+		expect(regexLiteralEnd("total / 2", 6)).toBe(-1);
+	});
+});
+
+describe("exact positions and details", function positions() {
+	test("Go findings report the line of the call", function goLines() {
+		const source =
+			'package cart\n\nfunc TestTotal(t *testing.T) {\n\tt.Skip("later")\n\ttime.Sleep(10)\n\tif total() != 3 {\n\t\tt.Errorf("bad")\n\t}\n}\n';
+
+		expect(auditGo(source)).toEqual([
+			{ line: 4, rule: "skipped", detail: 't.Skip("later")\n\ttime.Sleep(10)\n\tif tota' },
+			{ line: 5, rule: "sleep", detail: "time.Sleep(10)\n\tif total() != 3 {\n\t\tt.Er" },
+		]);
+	});
+
+	test("a Go test without an assertion is reported on its own line", function goNoAssertion() {
+		expect(auditGo("package x\n\nfunc TestNothing(t *testing.T) {\n\tcompute()\n}\n")).toEqual([
+			{ line: 3, rule: "no-assertion", detail: "TestNothing" },
+		]);
+	});
+
+	test("Python findings report their own line, for every tautology form", function pythonLines() {
+		const source = "def test_a():\n    assert True\n\ndef test_b():\n    assert x == x\n\ndef test_c():\n    assert 1 == 1\n";
+
+		expect(
+			auditPython(source).map(function lineAndRule(finding: { line: number; rule: string }) {
+				return `${finding.line}:${finding.rule}`;
+			}),
+		).toEqual(["2:tautology", "5:tautology", "8:tautology"]);
+	});
+
+	test("runner retries are reported on their line", function retryLine() {
+		expect(auditConfig("export default {\n\ttest: {\n\t\tretries: 2,\n\t},\n};\n")).toEqual([
+			{ line: 3, rule: "retries", detail: "retries: 2," },
+		]);
+	});
+
+	test("a finding at the first character of a line is on that line", function lineBoundary() {
+		expect(auditJs("a.test.ts", 'const x = 1;\nfit("a", function a() { expect(1).toBe(1); });')[0]?.line).toBe(2);
+	});
+
+	test("details are whitespace-collapsed and capped at 120 characters; titles at 80", function detailCaps() {
+		const long = `test.only("${"x".repeat(200)}", function long() { expect(total()).toBe(3); });`;
+		const [finding] = auditJs("a.test.ts", long);
+
+		expect(finding?.rule).toBe("focused");
+		expect(finding?.detail).toBe(long.slice(0, 80));
+
+		const focused = auditJs("b.test.ts", `describe.only(   "a     b", function suite() {});`)[0];
+
+		expect(focused?.detail).toBe('describe.only( "a b", function sui');
+
+		const tiny = auditJs("c.test.ts", 'test("p", function p() { fc.assert(fc.property(fc.nat(), check), { numRuns: 1 }); });')[0];
+
+		expect(tiny?.detail).toBe("numRuns: 1 }); });");
+	});
+
+	test("test.each tables are skipped to find the test body", function eachTables() {
+		const source = 'test.each([[1], [2]])("adds %i", function adds(n) { expect(n).toBeGreaterThan(0); });\ntest("x", function x() {});';
+		const tests = findJsTests(source, maskJs(source));
+
+		expect(tests).toHaveLength(2);
+		expect(source.slice(tests[0]!.start, tests[0]!.end)).toBe(source.split("\n")[0]!.slice(0, -1));
+		expect(source.slice(tests[1]!.start, tests[1]!.end)).toBe('test("x", function x() {})');
+	});
+
+	test("an audit-tests-ignore all comment silences every rule on the next line", function ignoreAll() {
+		expect(auditJs("a.test.ts", '// audit-tests-ignore all: fixture\nit.only("a", function a() {});')).toEqual([]);
+	});
+});
+
+describe("--fail-on levels", function failOn() {
+	test("info findings fail only --fail-on info", function infoLevel() {
+		const dir = project({ "view.test.ts": 'test("view", function view() { expect(render()).toMatchSnapshot(); });' });
+
+		expect(cli(dir, "--fail-on", "warn").status).toBe(0);
+		expect(cli(dir, "--fail-on", "info").status).toBe(1);
 	});
 });
