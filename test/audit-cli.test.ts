@@ -173,3 +173,20 @@ describe("masking and parsing details", function details() {
 		expect(text).toContain("audit-tests: 1 files, 3 findings");
 	});
 });
+
+describe("checks of newer test kinds", function newerKinds() {
+	test("a screenshot comparison is a visual test, not snapshot-only", function screenshot() {
+		expect(auditJs("home.spec.ts", 'test("home", async function home({ page }) { await expect(page).toHaveScreenshot(); });')).toEqual([]);
+		expect(rulesOf(auditJs("view.test.ts", 'test("view", function view() { expect(render()).toMatchSnapshot(); });'))).toEqual(["snapshot-only"]);
+	});
+
+	test("a property test with one or two runs is flagged in JavaScript and Python", function tinyBudget() {
+		expect(rulesOf(auditJs("p.test.ts", 'test("p", function p() { fc.assert(fc.property(fc.nat(), check), { numRuns: 1 }); });'))).toEqual([
+			"tiny-budget",
+		]);
+		expect(auditJs("p.test.ts", 'test("p", function p() { fc.assert(fc.property(fc.nat(), check), { numRuns: 10 }); });')).toEqual([]);
+		expect(rulesOf(auditFile("test_p.py", "@settings(max_examples=2)\n@given(st.integers())\ndef test_p(n):\n    assert f(n) >= 0\n"))).toEqual([
+			"tiny-budget",
+		]);
+	});
+});

@@ -34,6 +34,7 @@ then prove the remaining ones can, by breaking the code on purpose.
    | `sleep` | Fixed delays: slow and flaky |
    | `retries` | Runner retries that hide failures |
    | `expected-failure` | `test.fails`, `xfail`: passes while the bug exists |
+   | `tiny-budget` | A property test limited to one or two runs (`numRuns: 1`, `max_examples=1`) |
 
    The scanner uses patterns, not a parser. Treat each finding as a lead, read the test, and
    silence reviewed false positives with `// audit-tests-ignore <rule>: <reason>`.
@@ -44,6 +45,12 @@ then prove the remaining ones can, by breaking the code on purpose.
    - Is the oracle the code itself (calling the function under test to build the expectation)?
    - How many mocks? A test that mocks everything except one line tests the wiring of mocks.
    - Are assertions inside conditionals or loops that may run zero times?
+   - Newer kinds that cannot fail in their own way: property tests with constant or over-filtered
+     generators (`test-properties`); accessibility scans with rules disabled or the component
+     excluded (`test-accessibility`); screenshots whose tolerance exceeds the bug they guard
+     (`test-visual`); wall-clock assertions (`test-performance`); model tests that assert only
+     non-empty output, or evals gated on an average (`test-llm`). The scanner treats a screenshot
+     comparison as a visual test, not as `snapshot-only`.
 3. **Prove the rest bite (mutation check).** For the code the tests claim to cover, introduce one
    small fault at a time and run only the relevant tests:
    - flip a comparison (`<` to `<=`), negate a condition, drop an `else` branch;
@@ -89,4 +96,4 @@ then prove the remaining ones can, by breaking the code on purpose.
 - Key behaviors have a mutation result: killed, or surviving with the missing assertion named.
 - The report lists file, line, problem and fix for every test that cannot fail.
 
-Fix weak tests with `test-unit`; keep them from regressing with `test-guard`.
+Fix weak tests with the skill that owns their kind (`test-unit`, `test-component`, `test-integration`, `test-properties`); measure `sleep` and `retries` findings with `test-flaky`; keep them from regressing with `test-guard`.

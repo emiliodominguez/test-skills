@@ -25,14 +25,15 @@ work done, check that no test was deleted, skipped, loosened or bent to match th
    | Rule | Level | Meaning |
    | --- | --- | --- |
    | `deleted-test-file` | error | A test file is gone |
-   | `removed-tests` | error | Fewer test cases than before, with the missing titles |
+   | `removed-tests` | error | Fewer test cases than before, with the missing titles, or fewer pinned property examples |
    | `added-focus`, `added-skip` | error | New `.only`, `.skip`, `xfail`, `t.Skip` |
    | `weakened-assertion` | error | Exact matchers replaced by existence or truthiness checks |
-   | `lowered-threshold` | error | Coverage or mutation thresholds went down |
+   | `lowered-threshold` | error | Coverage, mutation or Lighthouse score thresholds went down, or property tests run fewer cases (`numRuns`, `max_examples`) |
+   | `raised-tolerance` | error | Screenshot diff allowances, k6 latency thresholds or Lighthouse budgets went up |
    | `added-retries` | error | More retries in a runner config |
    | `removed-assertions` | warn | Fewer assertions in a test file |
    | `changed-expectation` | warn | Same subject, different expected value: `toBe(3)` became `toBe(4)` |
-   | `updated-snapshots` | warn | Snapshot or golden files changed |
+   | `updated-snapshots` | warn | Snapshot, golden or screenshot-baseline files changed |
    | `excluded-tests` | warn | New exclude or ignore patterns in a test config |
    | `no-test-changes` | info | Source changed and no test did |
 
@@ -45,7 +46,12 @@ work done, check that no test was deleted, skipped, loosened or bent to match th
    requirement changed. If the code changed and the test was edited until it passed, revert the
    test edit and fix the code.
 4. **Read every snapshot diff** line by line. Accept only differences the change intended.
-5. **Report** the guard output with the justification next to each error, so a reviewer sees both.
+5. **Read what the guard cannot see.** It compares test files, runner configs and baselines by
+   pattern. It does not see deleted evaluation cases, a lowered evaluation gate, deleted
+   exploration properties or new entries in an accessibility-violation baseline, and it does not
+   know thresholds under names it does not recognize. Check those by hand in any change that
+   touches them.
+6. **Report** the guard output with the justification next to each error, so a reviewer sees both.
 
 ## Wiring it in
 

@@ -21,6 +21,10 @@ profile_skills() {
 	' "$ROOT/profiles.json" "$1"
 }
 
+# Skills earlier releases shipped that later ones merged away. uninstall.sh removes them too, so an
+# upgrade does not leave a stale skill competing for the same prompts.
+RETIRED_SKILLS="test-bombadil test-bombadil-spec test-e2e-to-bombadil"
+
 # Print every skill name in this checkout.
 all_skills() {
 	for dir in "$ROOT"/skills/*/; do

@@ -175,6 +175,7 @@ describe("interrupted runs", function interruptedSuite() {
 		const deadline = Date.now() + 20_000;
 
 		while (fs.readFileSync(file, "utf8") === pricing && Date.now() < deadline) {
+			// audit-tests-ignore sleep: polling interval while waiting for the first mutant, bounded by the deadline
 			await new Promise(function wait(done) {
 				setTimeout(done, 25);
 			});

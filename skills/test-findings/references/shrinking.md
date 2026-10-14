@@ -1,5 +1,17 @@
 # Reproduce, confirm and shrink
 
+## Reproduce by driver
+
+| Driver | Reproduce | Shrink |
+| --- | --- | --- |
+| Bombadil | `node scripts/bombadil-run.mjs --reproduce <output>` (the runner from `test-explore`'s assets), or the raw command below | Delta debugging over the trace (below) |
+| fast-check | Rerun with the reported `seed` and `path` (plus `replayPath` for `fc.commands`) | Built in; already shrunk when reported |
+| Hypothesis | Rerun the test: the `.hypothesis/` database replays known failures first; `@reproduce_failure` pins the exact blob | Built in |
+| Coverage-guided fuzzers | Run the target on the crash file | The fuzzer's minimizer (libFuzzer `-minimize_crash=1`, `go test -fuzz` minimizes automatically) |
+| A failing test | Rerun alone, then in its original order with the same seed | Remove setup and steps until it stops failing |
+
+Delta debugging below is for drivers that do not shrink on their own (recorded traces).
+
 ## Reproduce with Bombadil
 
 ```sh
@@ -12,14 +24,15 @@ Use the same options as the original run (spec, viewport, scale, origin, cookies
 both commands after each run. A divergence ("reproduction and original test diverged") fails the
 replay: the page differed at some step. Check settling, test ids and data before blaming the app.
 
-With a runner that writes the setup next to the trace, `--reproduce <folder>` should start a
-fresh app with that setup, so the replay does not depend on remembering flags.
+The bundled runner writes the setup next to the trace, so `--reproduce <folder>` starts a fresh
+app with that setup and the replay does not depend on remembering flags.
 
 ## Confirm
 
-Replay up to the last finding and write `confirmation.json`: for each finding in the original
-run, whether it happened again and at which step. Confirm automatically in campaigns before
-reporting a finding.
+Replay up to the last finding and record, for each finding in the original run, whether it
+happened again and at which step (a `confirmation.json` next to the trace, in a runner you
+extend; the bundled one does not write it). Confirm automatically in campaigns before reporting
+a finding.
 
 ## Shrink with delta debugging
 

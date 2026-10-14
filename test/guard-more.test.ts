@@ -4,7 +4,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
-import { changedExpectations, compareConfig, compareTestFile, countMarkers, isTestFile } from "../skills/test-guard/scripts/guard-tests.mjs";
+import {
+	changedExpectations,
+	compareConfig,
+	compareTestFile,
+	countMarkers,
+	isTestConfig,
+	isTestFile,
+	tolerances,
+} from "../skills/test-guard/scripts/guard-tests.mjs";
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills/test-guard/scripts/guard-tests.mjs");
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
@@ -70,6 +78,7 @@ function guard(cwd: string, ...args: string[]): { status: number | null; rules: 
 				return finding.rule;
 			})
 			.sort();
+		// audit-tests-ignore swallowed: non-JSON output is the human-readable report, asserted elsewhere
 	} catch {
 		// Human-readable output.
 	}
@@ -279,5 +288,57 @@ describe("guard helpers", function helpers() {
 			focus: 3,
 			skip: 5,
 		});
+	});
+});
+
+describe("loosened checks beyond coverage", function looserSuite() {
+	test("a raised screenshot tolerance in a config is an error", function screenshot() {
+		expect(compareConfig("toHaveScreenshot: { maxDiffPixelRatio: 0.01 }", "toHaveScreenshot: { maxDiffPixelRatio: 0.2 }")).toEqual([
+			{ rule: "raised-tolerance", detail: "maxDiffPixelRatio: 0.01 -> 0.2" },
+		]);
+	});
+
+	test("a raised tolerance inside a test file is an error, a tightened one is fine", function inTest() {
+		expect(
+			compareTestFile(
+				"await expect(page).toHaveScreenshot({ maxDiffPixels: 10 });",
+				"await expect(page).toHaveScreenshot({ maxDiffPixels: 500 });",
+			),
+		).toEqual([{ rule: "raised-tolerance", detail: "maxDiffPixels: 10 -> 500" }]);
+		expect(compareTestFile("toHaveScreenshot({ maxDiffPixels: 500 })", "toHaveScreenshot({ maxDiffPixels: 10 })")).toEqual([]);
+	});
+
+	test("raised k6 percentile thresholds are errors; loop conditions are not thresholds", function k6() {
+		expect(compareConfig('http_req_duration: ["p(95)<200", "avg<100"]', 'http_req_duration: ["p(95)<900", "avg<100"]')).toEqual([
+			{ rule: "raised-tolerance", detail: "p(95): 200 -> 900" },
+		]);
+		expect(tolerances("while (max < 10) { max += 1; }").size).toBe(0);
+	});
+
+	test("a lowered Lighthouse minScore and a raised maxNumericValue are flagged", function lighthouse() {
+		expect(compareConfig('"minScore": 0.9, "maxNumericValue": 2500', '"minScore": 0.7, "maxNumericValue": 4000')).toEqual([
+			{ rule: "lowered-threshold", detail: "minScore: 0.9 -> 0.7" },
+			{ rule: "raised-tolerance", detail: "maxNumericValue: 2500 -> 4000" },
+		]);
+	});
+
+	test("fewer property-test runs and removed pinned examples weaken a test file", function propertyBudgets() {
+		expect(compareTestFile("fc.assert(p, { numRuns: 200, examples: [[1]] });", "fc.assert(p, { numRuns: 5 });")).toEqual([
+			{ rule: "lowered-threshold", detail: "numRuns: 200 -> 5" },
+			{ rule: "removed-tests", detail: "pinned property examples 1 -> 0" },
+		]);
+		expect(compareTestFile("@example(1)\n@settings(max_examples=500)", "@example(1)\n@settings(max_examples=10)")).toEqual([
+			{ rule: "lowered-threshold", detail: "max_examples: 500 -> 10" },
+		]);
+	});
+
+	test.each([
+		["stryker.config.mjs", true],
+		["stryker.conf.json", true],
+		["lighthouserc.json", true],
+		[".lighthouserc.yml", true],
+		["stryker.ts", false],
+	])("isTestConfig(%s) is %s", function configs(file, expected) {
+		expect(isTestConfig(file)).toBe(expected);
 	});
 });

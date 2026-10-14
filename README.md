@@ -6,7 +6,7 @@
 
 **Tests that can fail.** Seventeen Agent Skills for every kind of testing a coding agent writes:
 unit, component, integration, end-to-end, property-based, exploration, accessibility, visual,
-performance, security and LLM evals. Each one ships evidence that its test catches a real bug,
+performance, security and LLM evals. Each technique skill ships evidence that its test catches a seeded bug,
 plus the tools that prove a green suite can fail.
 
 [![Agent Skills: spec compliant](https://img.shields.io/badge/Agent%20Skills-spec%20compliant-8250df?style=for-the-badge&labelColor=161b22&logo=bookstack&logoColor=white)](https://agentskills.io/specification)
@@ -112,6 +112,7 @@ git clone https://github.com/emiliodominguez/test-skills && cd test-skills
 pnpm install
 pnpm demo       # Bombadil
 pnpm demo:fc    # fast-check + Playwright
+python -m pytest examples/buggy-shop/hypothesis -q   # Hypothesis (needs hypothesis, playwright, pytest)
 ```
 
 fast-check shrinks each finding to the shortest sequence that still fails, and every one replays
@@ -149,7 +150,9 @@ Long typed strings are shortened. Counts are reported property failures, not dis
 
 Exploration is random: a single run usually finds five or six of the six seeded bugs. Then
 `pnpm demo:fixed` and `pnpm demo:fc:fixed` serve the same app with the bugs off and both stay
-silent. `pnpm verify` runs all of them, with the rest of the gate, before every release.
+silent (`BUGGY_SHOP_FIXED=1` for the Hypothesis harness). `pnpm verify` runs the Bombadil and
+fast-check demos, with the rest of the gate, before every release; the Hypothesis harness is run
+by hand.
 
 Terminal programs too: [`examples/buggy-cli`](examples/buggy-cli) is a todo list TUI with three
 seeded bugs (a byte cut that prints U+FFFD, a double-counted status line, a crash on position 0).
@@ -308,15 +311,15 @@ marketplace. See [docs/HOOKS.md](docs/HOOKS.md) for the Stop hook.
 
 From a clone (membership in [`profiles.json`](profiles.json)):
 
-| Profile      | Skills                                                                          |
-| ------------ | ------------------------------------------------------------------------------- |
-| `core`       | strategy, unit, component, integration, e2e, audit, guard, flaky, findings      |
-| `frontend`   | strategy, component, e2e, accessibility, visual, performance, explore, findings |
-| `backend`    | strategy, unit, integration, properties, performance, security, findings        |
-| `generative` | properties, explore, findings                                                   |
-| `honesty`    | audit, guard, flaky                                                             |
-| `hardening`  | policy, security, properties, findings                                          |
-| `ai`         | strategy, llm, unit, flaky, findings                                            |
+| Profile      | Skills                                                                                        |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `core`       | strategy, unit, component, integration, e2e, audit, guard, flaky, findings                    |
+| `frontend`   | strategy, component, e2e, accessibility, visual, performance, explore, flaky, guard, findings |
+| `backend`    | strategy, unit, integration, properties, performance, security, flaky, findings               |
+| `generative` | properties, explore, findings                                                                 |
+| `honesty`    | audit, guard, flaky                                                                           |
+| `hardening`  | policy, security, properties, findings                                                        |
+| `ai`         | strategy, llm, unit, flaky, findings                                                          |
 
 ```sh
 ./install.sh --profile frontend -- -a <agent> -y
@@ -341,7 +344,7 @@ marketplace channel; `npx skills` is the recommended path. Requires Node.js 22.2
   surfaced led to three real fixes: regex literals hid findings from the audit, a test file
   renamed out of the runner's reach passed the guard, and a killed mutation run left a mutant in
   the source.
-- Each skill's "Measured in this repository" section says what was run and what was not:
+- The technique skills' "Measured in this repository" sections say what was run and what was not:
   Testcontainers, Pact, k6, Lighthouse CI and hosted visual tools are described from their
   documentation, not claimed as verified.
 

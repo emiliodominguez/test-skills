@@ -19,9 +19,20 @@
 			"test-visual",
 			"test-performance",
 			"test-explore",
+			"test-flaky",
+			"test-guard",
 			"test-findings"
 		],
-		"backend": ["test-strategy", "test-unit", "test-integration", "test-properties", "test-performance", "test-security", "test-findings"],
+		"backend": [
+			"test-strategy",
+			"test-unit",
+			"test-integration",
+			"test-properties",
+			"test-performance",
+			"test-security",
+			"test-flaky",
+			"test-findings"
+		],
 		"generative": ["test-properties", "test-explore", "test-findings"],
 		"honesty": ["test-audit", "test-guard", "test-flaky"],
 		"hardening": ["test-policy", "test-security", "test-properties", "test-findings"],

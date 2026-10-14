@@ -26,6 +26,7 @@ export const RULES = {
 	"changed-expectation": { level: "warn", fix: "An expected value changed: confirm the requirement changed, not that the test was bent to the code." },
 	"updated-snapshots": { level: "warn", fix: "Read every changed snapshot line; accept only the differences the change intended." },
 	"lowered-threshold": { level: "error", fix: "Coverage or quality thresholds went down; add tests instead, or get explicit approval." },
+	"raised-tolerance": { level: "error", fix: "A tolerance or budget went up (screenshot diff, latency, Lighthouse); a looser check hides the bugs it was for. Fix the cause or get explicit approval." },
 	"added-retries": { level: "error", fix: "Retries hide failures; find the nondeterminism instead." },
 	"excluded-tests": { level: "warn", fix: "Tests were excluded from the run; say why and for how long." },
 	"no-test-changes": { level: "info", fix: "Source changed but no test did; check that existing tests cover the new behavior." },
@@ -70,6 +71,7 @@ export function isTestConfig(file) {
 
 	return (
 		/^(playwright|vitest|jest|cypress|vite|karma|ava|mocha)\.config\.[cm]?[jt]s$|^\.mocharc|^\.nycrc|^\.c8rc|^codecov\.ya?ml$|^\.coveragerc$|^(pytest\.ini|pyproject\.toml|setup\.cfg|tox\.ini|package\.json)$/u.test(name) ||
+		/^stryker\.(conf|config)\.([cm]?[jt]s|json)$|^\.?lighthouserc(\.(json|[cm]?js|ya?ml))?$/u.test(name) ||
 		/^\.github\/workflows\/.+\.ya?ml$/u.test(file)
 	);
 }
@@ -114,6 +116,69 @@ export function countMarkers(source) {
 }
 
 /**
+ * Highest value per tolerance key: screenshot diff allowances, k6 percentile and average
+ * thresholds, and Lighthouse numeric budgets. A higher value is a looser check.
+ *
+ * @param {string} source - File contents.
+ * @returns {Map<string, number>} Values by key.
+ */
+export function tolerances(source) {
+	const values = new Map();
+
+	/**
+	 * Keep the highest value seen for a key.
+	 *
+	 * @param {string} key - Tolerance key.
+	 * @param {number} value - Value.
+	 */
+	function keep(key, value) {
+		values.set(key, Math.max(values.get(key) ?? Number.NEGATIVE_INFINITY, value));
+	}
+
+	for (const match of source.matchAll(/\b(maxDiffPixels|maxDiffPixelRatio|maxNumericValue)\b["']?\s*[:=]\s*(\d+(?:\.\d+)?)/gu)) keep(match[1], Number(match[2]));
+	// k6 thresholds are strings such as "p(95)<200"; requiring the quote keeps loop conditions out.
+	for (const match of source.matchAll(/["'`](p\(\d+(?:\.\d+)?\)|avg|med|max)\s*<=?\s*(\d+(?:\.\d+)?)/gu)) keep(match[1], Number(match[2]));
+
+	return values;
+}
+
+/**
+ * Raised tolerances between two versions of a file.
+ *
+ * @param {string} before - Old contents.
+ * @param {string} after - New contents.
+ * @returns {Array<{ rule: string, detail: string }>} Findings.
+ */
+export function raisedTolerances(before, after) {
+	const old = tolerances(before);
+	const findings = [];
+
+	for (const [key, value] of tolerances(after)) {
+		const previous = old.get(key);
+
+		if (previous !== undefined && value > previous) findings.push({ rule: "raised-tolerance", detail: `${key}: ${previous} -> ${value}` });
+	}
+
+	return findings;
+}
+
+/**
+ * Property-based test budgets per key (`numRuns`, `max_examples`, ...): fewer runs search less.
+ *
+ * @param {string} source - File contents.
+ * @returns {Map<string, number>} Lowest value per key.
+ */
+function propertyBudgets(source) {
+	const values = new Map();
+
+	for (const match of source.matchAll(/\b(numRuns|max_examples|stateful_step_count|maxCommands)\b["']?\s*[:=]\s*(\d+)/gu)) {
+		values.set(match[1], Math.min(values.get(match[1]) ?? Number.POSITIVE_INFINITY, Number(match[2])));
+	}
+
+	return values;
+}
+
+/**
  * Compare two versions of a test file.
  *
  * @param {string} before - Contents at the base revision.
@@ -149,6 +214,22 @@ export function compareTestFile(before, after) {
 	const newWeak = [...after.matchAll(WEAK)].length;
 
 	if (newWeak > oldWeak && newExact < oldExact) findings.push({ rule: "weakened-assertion", detail: `exact matchers ${oldExact} -> ${newExact}, weak matchers ${oldWeak} -> ${newWeak}` });
+
+	const oldBudgets = propertyBudgets(before);
+
+	for (const [key, value] of propertyBudgets(after)) {
+		const old = oldBudgets.get(key);
+
+		if (old !== undefined && value < old) findings.push({ rule: "lowered-threshold", detail: `${key}: ${old} -> ${value}` });
+	}
+
+	const pins = /@example\(|\bexamples\s*:\s*\[/gu;
+	const oldPins = [...before.matchAll(pins)].length;
+	const newPins = [...after.matchAll(pins)].length;
+
+	if (newPins < oldPins) findings.push({ rule: "removed-tests", detail: `pinned property examples ${oldPins} -> ${newPins}` });
+
+	findings.push(...raisedTolerances(before, after));
 
 	return findings;
 }
@@ -234,7 +315,7 @@ export function compareConfig(before, after) {
 	function thresholds(source) {
 		const values = new Map();
 
-		for (const match of source.matchAll(/["']?\b(lines|branches|functions|statements|fail_under|fail-under|cov-fail-under|mutationScore|break|high|low|minimum_coverage|target)\b["']?\s*[:=\s]\s*(\d+(?:\.\d+)?)/gu)) {
+		for (const match of source.matchAll(/["']?\b(lines|branches|functions|statements|fail_under|fail-under|cov-fail-under|mutationScore|break|high|low|minimum_coverage|target|minScore)\b["']?\s*[:=\s]\s*(\d+(?:\.\d+)?)/gu)) {
 			values.set(match[1], Number(match[2]));
 		}
 
@@ -248,6 +329,8 @@ export function compareConfig(before, after) {
 
 		if (old !== undefined && value < old) findings.push({ rule: "lowered-threshold", detail: `${key}: ${old} -> ${value}` });
 	}
+
+	findings.push(...raisedTolerances(before, after));
 
 	/**
 	 * Highest retry count in a config.

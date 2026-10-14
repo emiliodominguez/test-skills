@@ -1,6 +1,6 @@
 {
 	"name": "test-skills",
-	"description": "Portable, agent-agnostic testing skills for AI coding agents.",
+	"description": "Agent Skills for every kind of testing, each proving its tests can fail.",
 	"owner": {
 		"name": "Emilio Dominguez"
 	},

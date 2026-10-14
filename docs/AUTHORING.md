@@ -8,7 +8,7 @@ Assume the agent can already code and already knows the testing framework basics
 Always loaded, and how the agent picks the skill. About 200-250 characters:
 
 1. What the skill is, as a short noun phrase.
-2. `Use when` plus the words a user would actually say ("flaky", "Bombadil violated", "E2E").
+2. `Use when` plus the words a user would actually say ("flaky", "property violated", "E2E").
 3. A handoff clause naming the next skills in backticks.
 
 Do not summarize the procedure; an agent that reads the steps in the description may skip the body.

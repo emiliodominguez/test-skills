@@ -78,7 +78,7 @@ repository.
 exec node .claude/skills/test-guard/scripts/guard-hook.mjs --base HEAD
 ```
 
-`--base HEAD` checks what is about to be committed. A pre-push hook can omit it to compare against
+`--base HEAD` checks every uncommitted change, staged or not, including untracked files. A pre-push hook can omit it to compare against
 the merge base with the default branch.
 
 ## CI
@@ -93,5 +93,6 @@ node .claude/skills/test-guard/scripts/guard-tests.mjs --base origin/main
 Pair it with the audit on the changed test files:
 
 ```sh
-node .claude/skills/test-audit/scripts/audit-tests.mjs $(git diff --name-only origin/main -- '*.test.*' '*_test.*')
+git diff --name-only --diff-filter=d origin/main... -- '*.test.*' '*.spec.*' '*_test.*' '*test_*.py' |
+	xargs -r node .claude/skills/test-audit/scripts/audit-tests.mjs
 ```

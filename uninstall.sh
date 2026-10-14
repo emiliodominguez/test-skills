@@ -3,8 +3,8 @@
 # Removes only this suite's skills by name. Arguments after "--" go to "npx skills remove"
 # unchanged.
 #
-#   ./uninstall.sh                         # every test-* skill, user scope, all agents
-#   ./uninstall.sh --profile ui            # one profile from profiles.json (repeatable)
+#   ./uninstall.sh                         # every test-* skill, retired ones too; user scope, all agents
+#   ./uninstall.sh --profile frontend      # one profile from profiles.json (repeatable)
 #   ./uninstall.sh --project               # from the current project instead of user scope
 #   ./uninstall.sh -- -a <agent>           # limit removal to specific agents
 #   ./uninstall.sh --dry-run               # print what would happen without changing anything
@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
 done
 
 require_node
-[ -n "$SKILLS" ] || SKILLS="$(all_skills)"
+[ -n "$SKILLS" ] || SKILLS="$(all_skills) $RETIRED_SKILLS"
 
 set -- remove $(printf '%s\n' $SKILLS | sort -u) $SCOPE -y "$@"
 

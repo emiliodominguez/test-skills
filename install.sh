@@ -4,7 +4,7 @@
 # "npx skills add" unchanged.
 #
 #   ./install.sh                           # all skills, user scope; the CLI asks which agents
-#   ./install.sh --profile ui              # one profile from profiles.json (repeatable)
+#   ./install.sh --profile frontend        # one profile from profiles.json (repeatable)
 #   ./install.sh --project                 # into the current project instead of user scope
 #   ./install.sh --local                   # from this checkout instead of GitHub
 #   ./install.sh -- -a <agent>... -y       # recommended for user scope; avoids project-only agents

@@ -84,6 +84,7 @@ def browser():
             urllib.request.urlopen(URL, timeout=1)
             break
         except OSError:
+            # audit-tests-ignore sleep: polling for the server to start, bounded by the loop
             time.sleep(0.1)
     with sync_playwright() as playwright:
         launched = playwright.chromium.launch(executable_path=os.environ.get("CHROME") or None, headless=True)

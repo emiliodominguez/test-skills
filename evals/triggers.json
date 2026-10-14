@@ -4,18 +4,22 @@
 		"test-strategy": {
 			"should": [
 				"Which tests should we write for the new invoicing module?",
-				"Audit our test suite and tell me what risks it misses.",
+				"Which risks in this repository have no test at all, and what kind of test should cover each?",
 				"Where should the check for role permissions live: unit, e2e or something else?",
 				"Plan the testing approach for this repository."
 			],
-			"near": ["Write a unit test for parseAmount.", "Bombadil found a violation, help me triage it.", "Set up Bombadil for our React app."]
+			"near": [
+				"Write a unit test for parseAmount.",
+				"Bombadil found a violation, help me triage it.",
+				"Write fast-check model-based UI tests for checkout."
+			]
 		},
 		"test-unit": {
 			"should": [
 				"Add tests for the tax id parser.",
 				"Our service tests mock everything; rewrite them to test real behavior.",
 				"Make sure every error kind maps to the right API response code.",
-				"Test the refund flow end to end in memory."
+				"Test the refund service flow in memory, with a fake payment gateway."
 			],
 			"near": [
 				"Write a Playwright tour for checkout.",
@@ -55,17 +59,21 @@
 			"near": [
 				"Check that all documentation links resolve.",
 				"Write a scripted test for the login page.",
-				"Find memory leaks while clicking around the app."
+				"Add a test that fails when the dashboard leaks memory across repeated navigation."
 			]
 		},
 		"test-findings": {
 			"should": [
 				"Bombadil reported cartTotalAddsUp was violated; is it a real bug?",
-				"This test fails one run in twenty; find out why.",
-				"Shrink this exploration trace to the minimal reproduction.",
+				"fast-check found a counterexample for the allocation property; reproduce it and decide whether the code or the property is wrong.",
+				"Our eval gate failed on three cases after the prompt change; decide which are real regressions and pin them.",
 				"The fuzzer found a crash; reproduce it and add a regression test."
 			],
-			"near": ["Write new Bombadil properties for the reports screen.", "Plan which tests we need.", "Set up nightly Bombadil campaigns."]
+			"near": [
+				"Write new properties for the reports screen and run exploration on it.",
+				"Plan which tests we need.",
+				"This test fails one run in twenty; find out why."
+			]
 		},
 		"test-audit": {
 			"should": [
@@ -145,7 +153,7 @@
 				"Which pixel diff threshold should we use so a 4px shift still fails?"
 			],
 			"near": [
-				"Check that the page has no horizontal overflow on every screen.",
+				"Check the page reflows at 320px without horizontal scrolling (WCAG 1.4.10).",
 				"Write a Playwright test that the checkout total is correct.",
 				"Make the hero image load faster."
 			]
@@ -168,7 +176,7 @@
 				"Add evals for the ticket classifier prompt before we switch models.",
 				"Write tests for our RAG pipeline's retrieval and answer faithfulness.",
 				"Set up an LLM-as-judge to score chatbot replies and gate prompt changes.",
-				"Test the agent's tool calls and make sure retries don't double-charge."
+				"Test that the support agent calls the refund tool with the right arguments, using a scripted model."
 			],
 			"near": [
 				"Measure why this test fails 1 in 20 runs in CI.",

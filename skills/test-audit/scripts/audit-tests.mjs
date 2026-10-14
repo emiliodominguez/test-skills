@@ -36,6 +36,7 @@ export const RULES = {
 	sleep: { level: "warn", fix: "Wait for an observable condition instead of a fixed delay; sleeps are slow and flaky." },
 	retries: { level: "warn", fix: "Find the nondeterminism; retries hide real failures and races." },
 	"expected-failure": { level: "warn", fix: "An expected failure passes while the bug exists; link the issue and an owner." },
+	"tiny-budget": { level: "warn", fix: "A property test with one or two runs is an example test; use the library default or more." },
 };
 
 /**
@@ -352,7 +353,9 @@ export function auditJs(file, source) {
 
 		const matchers = [...code.matchAll(ANY_MATCHER)].length;
 		const weak = [...code.matchAll(WEAK_MATCHER)].length;
-		const snapshots = [...code.matchAll(/\.(toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toHaveScreenshot|toMatchAriaSnapshot)\(/gu)].length;
+		// Screenshot comparisons are visual tests whose reviewed baseline is the contract; judge them
+		// with the visual testing practices, not as snapshot-only.
+		const snapshots = [...code.matchAll(/\.(toMatchSnapshot|toMatchInlineSnapshot|toMatchFileSnapshot|toMatchAriaSnapshot)\(/gu)].length;
 
 		if (matchers > 0 && weak === matchers) add(test.start, "weak-assertion", title);
 		if (matchers > 0 && snapshots === matchers) add(test.start, "snapshot-only", title);
@@ -382,6 +385,7 @@ export function auditJs(file, source) {
 	}
 
 	for (const match of masked.matchAll(/catch\s*(?:\(\s*\w*\s*\))?\s*\{\s*\}|\.catch\(\s*(?:\(\s*\w*\s*\)\s*=>\s*(?:\{\s*\}|undefined|null)|function\s*\w*\s*\(\s*\w*\s*\)\s*\{\s*\})\s*\)/gu)) add(match.index, "swallowed", source.slice(match.index, match.index + 40));
+	for (const match of masked.matchAll(/\bnumRuns\s*:\s*[12]\b/gu)) add(match.index, "tiny-budget", source.slice(match.index, match.index + 20));
 	for (const match of masked.matchAll(/\b(?:waitForTimeout|sleep|delay)\s*\(\s*\d|\bcy\.wait\(\s*\d|new Promise\(\s*(?:\(?\s*\w+\s*\)?\s*=>|function\s*\w*\s*\(\s*\w+\s*\))\s*\{?\s*setTimeout\(/gu)) add(match.index, "sleep", source.slice(match.index, match.index + 50));
 
 	const lines = source.split("\n");
@@ -410,6 +414,7 @@ export function auditPython(source) {
 			findings.push({ line, rule: "tautology", detail: text.trim() });
 		}
 		if (/\btime\.sleep\(\s*\d/u.test(text) || /\bawait\s+asyncio\.sleep\(\s*\d/u.test(text)) findings.push({ line, rule: "sleep", detail: text.trim() });
+		if (/\bmax_examples\s*=\s*[12]\b/u.test(text)) findings.push({ line, rule: "tiny-budget", detail: text.trim() });
 		if (/^\s*except(?:\s+\w+(?:\s+as\s+\w+)?)?\s*:\s*(?:pass)?\s*$/u.test(text) && /^\s*pass\s*$/u.test(lines[index + 1] ?? "pass")) findings.push({ line, rule: "swallowed", detail: text.trim() });
 
 		const definition = /^(\s*)(?:async\s+)?def\s+(test\w*)\s*\(/u.exec(text);
