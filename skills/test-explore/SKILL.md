@@ -89,8 +89,8 @@ read [from-e2e.md](references/from-e2e.md).
 
 Three drivers explore `examples/buggy-shop` (six seeded bugs) with no scripted paths, and each
 stays silent on the fixed build: Bombadil (`pnpm demo`) finds five or six per two-minute run;
-fast-check (`pnpm demo:fc`) found all six in six of seven four-minute runs and five in the
-other, each shrunk to one to five actions, including a stuck spinner reached by three adds,
+fast-check (`pnpm demo:fc`) found all six in six of eight four-minute runs and five in the
+others, each shrunk to one to five actions, including a stuck spinner reached by three adds,
 Checkout and Place order; Hypothesis found all six in sixty examples. The harness details that
 decided those numbers: sequences long enough for five-step bugs, a shrinking budget separate from
 the search budget, and modals and busy indicators detected the way the app renders them. On a
