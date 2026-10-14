@@ -13,7 +13,8 @@
 //   });
 //
 // Actions pick their target when they run (an index into what is on screen then), so a sequence is
-// meaningful on any state and shrinks to a short, readable reproduction.
+// meaningful on any state and shrinks to a short, readable reproduction. Wall time is at most
+// `timeLimitMs` plus, per finding, `shrinkMs` and one replay.
 
 import fc from "fast-check";
 
@@ -40,6 +41,53 @@ export const HOSTILE_TEXT = [
 /** Keys worth pressing on any interface. */
 export const KEYS = ["Escape", "Enter", "Tab", "Shift+Tab", " ", "ArrowDown", "ArrowUp"];
 
+/** What counts as an open modal: native modal dialogs and ARIA modal dialogs. */
+export const MODAL = 'dialog[open]:modal, [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]';
+
+/** What counts as busy: `aria-busy` and indeterminate progress bars (no `aria-valuenow`). */
+export const BUSY = '[aria-busy="true"], [role="progressbar"]:not([aria-valuenow])';
+
+/** Elements a click may target. Links are limited to the page's origin when marked. */
+export const CLICKABLE = [
+	"button",
+	"a[href]",
+	"summary",
+	'input[type="checkbox"]',
+	'input[type="radio"]',
+	'input[type="submit"]',
+	'input[type="button"]',
+	'input[type="reset"]',
+	'input[type="image"]',
+	'[role="button"]',
+	'[role="link"]',
+	'[role="tab"]',
+	'[role="menuitem"]',
+	'[role="menuitemcheckbox"]',
+	'[role="menuitemradio"]',
+	'[role="checkbox"]',
+	'[role="switch"]',
+	'[role="option"]',
+	'[role="combobox"]',
+	'[role="treeitem"]',
+].join(", ");
+
+/** Elements typing may target. */
+export const TYPEABLE = [
+	"input:not([type])",
+	'input[type="text"]',
+	'input[type="search"]',
+	'input[type="email"]',
+	'input[type="number"]',
+	'input[type="tel"]',
+	'input[type="url"]',
+	'input[type="password"]',
+	'input[type="date"]',
+	'input[type="time"]',
+	'input[type="datetime-local"]',
+	"textarea",
+	'[contenteditable]:not([contenteditable="false"])',
+].join(", ");
+
 /**
  * Snapshot of what any property may need, read in the page after an action settles.
  *
@@ -55,17 +103,19 @@ export const KEYS = ["Escape", "Enter", "Tab", "Shift+Tab", " ", "ArrowDown", "A
  * One explored step, handed to every property.
  *
  * @typedef {object} Step
- * @property {string} action - Description of the action just taken.
+ * @property {string} action - Description of the action just taken ("load page" for the first state).
  * @property {Snapshot} before - State before the action.
  * @property {Snapshot} after - State after the action settled.
- * @property {string[]} errors - Uncaught page errors raised during the action.
+ * @property {string[]} errors - Uncaught page errors since the previous check.
+ * @property {string[]} consoleErrors - Console errors since the previous check.
+ * @property {string[]} failedRequests - Failed requests and 5xx responses since the previous check.
  * @property {boolean} settled - Whether busy indicators cleared within the settle budget.
- * @property {string[]} typed - Every text typed so far in this run, so properties can ignore echoes.
+ * @property {string[]} typed - Texts typed so far in this run, so properties can ignore echoes.
  */
 
 /**
  * A rule checked after every action. `check` returns true when it holds, or false or a message
- * when it does not.
+ * when it does not. A check that throws counts as a violation of that property.
  *
  * @typedef {object} Property
  * @property {string} name - Name that reads as the rule.
@@ -76,48 +126,102 @@ export const KEYS = ["Escape", "Enter", "Tab", "Shift+Tab", " ", "ArrowDown", "A
  * A violation, shrunk and ready to replay.
  *
  * @typedef {object} Finding
- * @property {string} property - Violated property.
+ * @property {string} property - Violated property, or "harness" when the harness itself failed.
  * @property {string} message - What the property reported.
  * @property {string[]} actions - Shrunk action sequence.
  * @property {number} seed - fast-check seed.
  * @property {string} path - fast-check path; with the seed and replay path, replays the shrunk case.
  * @property {string} replayPath - fast-check replay path of the shrunk command sequence.
- * @property {boolean} reproduced - Whether replaying the shrunk case failed again the same way.
+ * @property {boolean} reproduced - Whether replaying the shrunk case violated the same property again.
  */
 
 /**
- * Read the generic snapshot. Runs in the page.
+ * What the commands may target in the current state. Commands without a target are not applicable:
+ * fast-check skips them when they would run and drops them when shrinking.
  *
+ * @typedef {object} Model
+ * @property {number} clickable - Clickable elements on screen.
+ * @property {number} typeable - Text fields on screen.
+ * @property {number} selectable - Select boxes on screen.
+ */
+
+/**
+ * The real system a command runs against.
+ *
+ * @typedef {object} Real
+ * @property {import("playwright-core").Page} page - The page.
+ * @property {(page: import("playwright-core").Page) => Promise<unknown>} extract - App-specific reader.
+ * @property {Property[]} properties - Properties to check.
+ * @property {{ errors: string[], consoleErrors: string[], failedRequests: string[] }} events - Everything collected this run.
+ * @property {{ errors: number, consoleErrors: number, failedRequests: number }} reported - How much of each list was checked already.
+ * @property {number} settleMs - Settle budget per action.
+ * @property {number} actionTimeoutMs - Timeout for one Playwright action.
+ * @property {string[]} log - Descriptions of the actions taken so far in this run.
+ * @property {string[]} typed - Texts typed so far in this run.
+ */
+
+/**
+ * Read the generic snapshot. Runs in the page, so it is self-contained.
+ *
+ * @param {{ modal: string, busy: string }} selectors - Modal and busy selectors.
  * @returns {{ text: string, modalOpen: boolean, busy: boolean, injected: boolean }} Snapshot without the app part.
  */
-function readPage() {
-	const busy = Array.from(document.querySelectorAll('[aria-busy="true"], [role="progressbar"]')).some(function visible(element) {
-		return element instanceof HTMLElement && !element.hidden && element.offsetParent !== null;
-	});
+export function readPage(selectors) {
+	/**
+	 * Whether an element is rendered and visible, fixed-position ones included.
+	 *
+	 * @param {Element} element - Element.
+	 * @returns {boolean} Visible.
+	 */
+	function visible(element) {
+		return element instanceof HTMLElement && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && element.getClientRects().length > 0;
+	}
 
 	return {
 		text: document.body ? document.body.innerText : "",
-		modalOpen: document.querySelector("dialog[open]:modal") !== null,
-		busy,
+		modalOpen: Array.from(document.querySelectorAll(selectors.modal)).some(visible),
+		busy: Array.from(document.querySelectorAll(selectors.busy)).some(visible),
 		injected: window.__exploreInjected === 1,
 	};
 }
 
 /**
  * Mark the elements an action may target and return how many there are. Runs in the page. Inside an
- * open modal only the modal's elements count, since everything else is inert.
+ * open modal only the topmost modal's elements count, since everything else is inert or covered.
  *
- * @param {"click" | "type"} kind - Which elements to mark.
+ * @param {{ selector: string, modal: string }} query - Candidate and modal selectors.
  * @returns {number} Number of candidates, marked `data-explore-pick="0..n-1"`.
  */
-function markCandidates(kind) {
-	const scope = document.querySelector("dialog[open]:modal") ?? document;
-	const selector =
-		kind === "click"
-			? 'button, a[href], [role="button"], [role="link"], [role="tab"], [role="menuitem"], input[type="checkbox"], input[type="radio"], summary'
-			: 'input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="number"], input[type="tel"], input[type="url"], input[type="password"], textarea, [contenteditable="true"]';
-	const candidates = Array.from(scope.querySelectorAll(selector)).filter(function usable(element) {
-		return element instanceof HTMLElement && !element.closest("[inert]") && !element.matches(":disabled") && element.offsetParent !== null;
+export function markCandidates(query) {
+	/**
+	 * Whether an element is rendered and visible, fixed-position ones included.
+	 *
+	 * @param {Element} element - Element.
+	 * @returns {boolean} Visible.
+	 */
+	function visible(element) {
+		return element instanceof HTMLElement && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && element.getClientRects().length > 0;
+	}
+
+	/**
+	 * Whether a link stays on this page's origin (other origins are out of scope for exploration).
+	 *
+	 * @param {Element} element - Candidate.
+	 * @returns {boolean} Same origin, or not a link.
+	 */
+	function sameOrigin(element) {
+		if (!(element instanceof HTMLAnchorElement)) return true;
+
+		try {
+			return new URL(element.href, location.href).origin === location.origin && !element.hasAttribute("download");
+		} catch {
+			return false;
+		}
+	}
+
+	const scope = Array.from(document.querySelectorAll(query.modal)).filter(visible).at(-1) ?? document;
+	const candidates = Array.from(scope.querySelectorAll(query.selector)).filter(function usable(element) {
+		return visible(element) && !element.closest("[inert]") && !element.matches(":disabled") && element.getAttribute("aria-disabled") !== "true" && sameOrigin(element);
 	});
 
 	for (const element of document.querySelectorAll("[data-explore-pick]")) element.removeAttribute("data-explore-pick");
@@ -129,7 +233,22 @@ function markCandidates(kind) {
 }
 
 /**
- * Wait until no busy indicator is visible, up to a budget.
+ * Count what the commands may target now.
+ *
+ * @param {import("playwright-core").Page} page - The page.
+ * @returns {Promise<Model>} Targets on screen.
+ */
+async function targets(page) {
+	return {
+		clickable: await page.evaluate(markCandidates, { selector: CLICKABLE, modal: MODAL }),
+		typeable: await page.evaluate(markCandidates, { selector: TYPEABLE, modal: MODAL }),
+		selectable: await page.evaluate(markCandidates, { selector: "select", modal: MODAL }),
+	};
+}
+
+/**
+ * Wait until no busy indicator is visible, up to a budget. Two animation frames first, so an
+ * indicator that appears just after the action is seen.
  *
  * @param {import("playwright-core").Page} page - The page.
  * @param {number} budgetMs - Longest wait.
@@ -137,13 +256,21 @@ function markCandidates(kind) {
  */
 async function settle(page, budgetMs) {
 	try {
+		await page.evaluate(function twoFrames() {
+			return new Promise(function frames(done) {
+				requestAnimationFrame(function first() {
+					requestAnimationFrame(done);
+				});
+			});
+		});
+		await page.waitForLoadState("domcontentloaded", { timeout: budgetMs });
 		await page.waitForFunction(
-			function idle() {
-				return !Array.from(document.querySelectorAll('[aria-busy="true"], [role="progressbar"]')).some(function visible(element) {
-					return element instanceof HTMLElement && !element.hidden && element.offsetParent !== null;
+			function idle(busy) {
+				return !Array.from(document.querySelectorAll(busy)).some(function visible(element) {
+					return element instanceof HTMLElement && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && element.getClientRects().length > 0;
 				});
 			},
-			undefined,
+			BUSY,
 			{ timeout: budgetMs, polling: 50 },
 		);
 
@@ -159,62 +286,79 @@ async function settle(page, budgetMs) {
 class PropertyViolation extends Error {
 	/**
 	 * @param {string} property - Violated property.
-	 * @param {string} message - What it reported.
+	 * @param {string} detail - What it reported.
 	 */
-	constructor(property, message) {
-		super(`${property}: ${message}`);
+	constructor(property, detail) {
+		super(`${property}: ${detail}`);
 		this.property = property;
-		this.detail = message;
+		this.detail = detail;
 	}
 }
 
 /**
- * The real system a command runs against: the page, the app extractor and the properties.
- *
- * @typedef {object} Real
- * @property {import("playwright-core").Page} page - The page.
- * @property {(page: import("playwright-core").Page) => Promise<unknown>} extract - App-specific reader.
- * @property {Property[]} properties - Properties to check.
- * @property {string[]} errors - Page errors collected since the last step.
- * @property {number} settleMs - Settle budget per action.
- * @property {number} actionTimeoutMs - Timeout for one Playwright action.
- * @property {string[]} log - Descriptions of the actions taken so far in this run.
- * @property {string[]} typed - Texts typed so far in this run.
- */
-
-/**
- * Take a snapshot of the page.
+ * Take a snapshot of the page, retrying once when a navigation replaced the document mid-read.
  *
  * @param {Real} real - The system.
  * @returns {Promise<Snapshot>} Snapshot.
  */
 async function snapshot(real) {
-	const page = await real.page.evaluate(readPage);
+	for (let attempt = 0; ; attempt += 1) {
+		try {
+			const page = await real.page.evaluate(readPage, { modal: MODAL, busy: BUSY });
 
-	return { ...page, app: await real.extract(real.page) };
+			return { ...page, app: await real.extract(real.page) };
+		} catch (error) {
+			if (attempt > 0 || !/context was destroyed|navigat/iu.test(String(error))) throw error;
+			await real.page.waitForLoadState("domcontentloaded").catch(function ignore() {});
+		}
+	}
 }
 
 /**
- * What the commands may target in the current state. Commands without a target are not applicable,
- * so fast-check never generates them there and drops them when shrinking.
+ * Take the events collected since the previous check.
  *
- * @typedef {object} Model
- * @property {number} clickable - Clickable elements on screen.
- * @property {number} typeable - Text fields on screen.
+ * @param {Real} real - The system.
+ * @returns {{ errors: string[], consoleErrors: string[], failedRequests: string[] }} New events.
  */
+function newEvents(real) {
+	const fresh = {
+		errors: real.events.errors.slice(real.reported.errors),
+		consoleErrors: real.events.consoleErrors.slice(real.reported.consoleErrors),
+		failedRequests: real.events.failedRequests.slice(real.reported.failedRequests),
+	};
 
-/**
- * Count what the commands may target now.
- *
- * @param {import("playwright-core").Page} page - The page.
- * @returns {Promise<Model>} Targets on screen.
- */
-async function targets(page) {
-	return { clickable: await page.evaluate(markCandidates, "click"), typeable: await page.evaluate(markCandidates, "type") };
+	real.reported = { errors: real.events.errors.length, consoleErrors: real.events.consoleErrors.length, failedRequests: real.events.failedRequests.length };
+
+	return fresh;
 }
 
 /**
- * Run one action, then check every property against the step.
+ * Check every property against one step. A property that throws counts as violated; a verdict that
+ * is neither true, false nor a string is a bug in the property and is reported as one.
+ *
+ * @param {Real} real - The system.
+ * @param {Step} current - The step.
+ */
+function check(real, current) {
+	for (const property of real.properties) {
+		let verdict;
+
+		try {
+			verdict = property.check(current);
+		} catch (error) {
+			throw new PropertyViolation(property.name, `check threw: ${error instanceof Error ? error.message : String(error)}`);
+		}
+
+		if (verdict === true) continue;
+		if (verdict === false || typeof verdict === "string") throw new PropertyViolation(property.name, verdict === false ? "does not hold" : verdict);
+
+		throw new PropertyViolation(property.name, `check returned ${typeof verdict}; return true, false or a message (async checks are not supported)`);
+	}
+}
+
+/**
+ * Run one action, then check every property against the step. Custom workflow commands call this
+ * from their own `run(model, real)` so their steps are judged and the model stays current.
  *
  * @param {Model} model - Targets on screen; updated after the action.
  * @param {Real} real - The system.
@@ -222,11 +366,10 @@ async function targets(page) {
  * @param {(page: import("playwright-core").Page) => Promise<void>} perform - The action.
  * @returns {Promise<void>} Resolves when every property holds; rejects with a violation otherwise.
  */
-async function step(model, real, description, perform) {
+export async function runStep(model, real, description, perform) {
 	const before = await snapshot(real);
 
 	real.log.push(description);
-	real.errors.length = 0;
 
 	try {
 		await perform(real.page);
@@ -238,19 +381,36 @@ async function step(model, real, description, perform) {
 	const after = await snapshot(real);
 
 	Object.assign(model, await targets(real.page));
-	const current = { action: description, before, after, errors: [...real.errors], settled, typed: [...real.typed] };
+	check(real, { action: description, before, after, ...newEvents(real), settled, typed: [...real.typed] });
+}
 
-	for (const property of real.properties) {
-		const verdict = property.check(current);
+/**
+ * Short description of an action target: its accessible name or tag.
+ *
+ * @param {import("playwright-core").Locator} target - The element.
+ * @param {number} timeoutMs - Longest wait for the element.
+ * @returns {Promise<string>} Description.
+ */
+async function describeTarget(target, timeoutMs) {
+	return target
+		.evaluate(
+			function describe(element) {
+				const name = element.getAttribute("aria-label") ?? element.labels?.[0]?.textContent ?? element.textContent ?? element.getAttribute("value") ?? "";
 
-		if (verdict !== true) throw new PropertyViolation(property.name, typeof verdict === "string" ? verdict : "does not hold");
-	}
+				return `${element.tagName.toLowerCase()} "${name.trim().replace(/\s+/gu, " ").slice(0, 40)}"`;
+			},
+			undefined,
+			{ timeout: timeoutMs },
+		)
+		.catch(function unknown() {
+			return "an element";
+		});
 }
 
 /**
  * Click the n-th clickable element on screen (modulo how many there are).
  */
-class Click {
+export class Click {
 	/** @param {number} pick - Target index. */
 	constructor(pick) {
 		this.pick = pick;
@@ -270,12 +430,12 @@ class Click {
 	 * @returns {Promise<void>} Resolves after the step.
 	 */
 	async run(model, real) {
-		const count = await real.page.evaluate(markCandidates, "click");
+		const count = await real.page.evaluate(markCandidates, { selector: CLICKABLE, modal: MODAL });
 		const target = count === 0 ? null : real.page.locator(`[data-explore-pick="${this.pick % count}"]`);
-		const label = target ? await describeTarget(target) : "nothing";
+		const label = target ? await describeTarget(target, real.actionTimeoutMs) : "nothing";
 
 		this.label = `click ${label}`;
-		await step(model, real, this.label, async function perform() {
+		await runStep(model, real, this.label, async function perform() {
 			if (target) await target.click({ timeout: real.actionTimeoutMs });
 		});
 	}
@@ -289,7 +449,7 @@ class Click {
 /**
  * Replace the value of the n-th text field with generated text.
  */
-class Type {
+export class Type {
 	/**
 	 * @param {number} pick - Target index.
 	 * @param {string} text - Text to enter.
@@ -313,15 +473,17 @@ class Type {
 	 * @returns {Promise<void>} Resolves after the step.
 	 */
 	async run(model, real) {
-		const count = await real.page.evaluate(markCandidates, "type");
+		const count = await real.page.evaluate(markCandidates, { selector: TYPEABLE, modal: MODAL });
 		const target = count === 0 ? null : real.page.locator(`[data-explore-pick="${this.pick % count}"]`);
-		const label = target ? await describeTarget(target) : "nothing";
+		const label = target ? await describeTarget(target, real.actionTimeoutMs) : "nothing";
 		const text = this.text;
 
 		this.label = `type ${JSON.stringify(text.length > 40 ? `${text.slice(0, 40)}…` : text)} into ${label}`;
-		real.typed.push(text);
-		await step(model, real, this.label, async function perform() {
-			if (target) await target.fill(text, { timeout: real.actionTimeoutMs });
+		await runStep(model, real, this.label, async function perform() {
+			if (!target) return;
+			await target.fill(text, { timeout: real.actionTimeoutMs });
+			// Only text that actually went in can be echoed back.
+			real.typed.push(text);
 		});
 	}
 
@@ -332,9 +494,66 @@ class Type {
 }
 
 /**
+ * Choose an option in the n-th select box.
+ */
+export class SelectOption {
+	/**
+	 * @param {number} pick - Target index.
+	 * @param {number} option - Option index (modulo how many options there are).
+	 */
+	constructor(pick, option) {
+		this.pick = pick;
+		this.option = option;
+	}
+
+	/**
+	 * @param {Model} model - Targets on screen.
+	 * @returns {boolean} Applicable while a select box is on screen.
+	 */
+	check(model) {
+		return model.selectable > 0;
+	}
+
+	/**
+	 * @param {Model} model - Targets on screen.
+	 * @param {Real} real - The system.
+	 * @returns {Promise<void>} Resolves after the step.
+	 */
+	async run(model, real) {
+		const count = await real.page.evaluate(markCandidates, { selector: "select", modal: MODAL });
+		const target = count === 0 ? null : real.page.locator(`[data-explore-pick="${this.pick % count}"]`);
+		const options = target
+			? await target
+					.evaluate(
+						function optionCount(element) {
+							return element instanceof HTMLSelectElement ? element.options.length : 0;
+						},
+						undefined,
+						{ timeout: real.actionTimeoutMs },
+					)
+					.catch(function none() {
+						return 0;
+					})
+			: 0;
+		const index = options === 0 ? 0 : this.option % options;
+		const label = target ? await describeTarget(target, real.actionTimeoutMs) : "nothing";
+
+		this.label = `select option ${index} in ${label}`;
+		await runStep(model, real, this.label, async function perform() {
+			if (target && options > 0) await target.selectOption({ index }, { timeout: real.actionTimeoutMs });
+		});
+	}
+
+	/** @returns {string} Readable form for reports. */
+	toString() {
+		return this.label ?? `select option ${this.option} in #${this.pick}`;
+	}
+}
+
+/**
  * Press a key on whatever has focus.
  */
-class Press {
+export class Press {
 	/** @param {string} key - Key name. */
 	constructor(key) {
 		this.key = key;
@@ -353,7 +572,7 @@ class Press {
 	async run(model, real) {
 		const key = this.key;
 
-		await step(model, real, this.toString(), async function perform(page) {
+		await runStep(model, real, this.toString(), async function perform(page) {
 			await page.keyboard.press(key);
 		});
 	}
@@ -367,7 +586,7 @@ class Press {
 /**
  * Let time pass, for timers, debounces and slow responses.
  */
-class Wait {
+export class Wait {
 	/** @param {number} ms - Milliseconds. */
 	constructor(ms) {
 		this.ms = ms;
@@ -386,7 +605,7 @@ class Wait {
 	async run(model, real) {
 		const ms = this.ms;
 
-		await step(model, real, this.toString(), async function perform(page) {
+		await runStep(model, real, this.toString(), async function perform(page) {
 			await page.waitForTimeout(ms);
 		});
 	}
@@ -398,26 +617,8 @@ class Wait {
 }
 
 /**
- * Short description of an action target: its accessible name or tag.
- *
- * @param {import("playwright-core").Locator} target - The element.
- * @returns {Promise<string>} Description.
- */
-async function describeTarget(target) {
-	return target
-		.evaluate(function describe(element) {
-			const name = element.getAttribute("aria-label") ?? element.labels?.[0]?.textContent ?? element.textContent ?? "";
-
-			return `${element.tagName.toLowerCase()} "${name.trim().replace(/\s+/gu, " ").slice(0, 40)}"`;
-		})
-		.catch(function unknown() {
-			return "an element";
-		});
-}
-
-/**
- * Default command mix. Weights favor clicks, then typing and keys (Escape most of all); waits keep
- * timers in play.
+ * Default command mix. Weights favor clicks, then typing and keys (Escape most of all); selects and
+ * waits keep option lists and timers in play.
  *
  * @param {{ text?: fc.Arbitrary<string>, keys?: string[], waits?: number[] }} [options] - Overrides.
  * @returns {fc.Arbitrary<object>[]} Command arbitraries for `fc.commands`.
@@ -447,6 +648,9 @@ export function defaultCommands(options = {}) {
 				return new Press(key);
 			});
 		}),
+		fc.tuple(pick, fc.nat({ max: 20 })).map(function select([index, option]) {
+			return new SelectOption(index, option);
+		}),
 		fc.constantFrom(...(options.waits ?? [100, 700])).map(function wait(ms) {
 			return new Wait(ms);
 		}),
@@ -454,11 +658,34 @@ export function defaultCommands(options = {}) {
 }
 
 /**
+ * Whether a match of a broken token lies inside text the explorer typed, which the app is merely
+ * echoing back (a preview, a search term).
+ *
+ * @param {string} text - Visible text.
+ * @param {number} index - Match start.
+ * @param {number} length - Match length.
+ * @param {string[]} typed - Texts typed this run.
+ * @returns {boolean} True when the match is an echo.
+ */
+export function isEcho(text, index, length, typed) {
+	return typed.some(function covers(value) {
+		if (value.length < length) return false;
+
+		for (let start = text.indexOf(value); start !== -1; start = text.indexOf(value, start + 1)) {
+			if (start <= index && index + length <= start + value.length) return true;
+		}
+
+		return false;
+	});
+}
+
+/**
  * Properties that hold for almost any interface.
  *
+ * @param {{ ignoreConsole?: RegExp, ignoreRequests?: RegExp }} [options] - Messages and URLs known to be harmless.
  * @returns {Property[]} Generic properties.
  */
-export function genericProperties() {
+export function genericProperties(options = {}) {
 	return [
 		{
 			name: "noUncaughtErrors",
@@ -467,13 +694,31 @@ export function genericProperties() {
 			},
 		},
 		{
+			name: "noConsoleErrors",
+			check: function noConsoleErrors(step) {
+				const errors = step.consoleErrors.filter(function relevant(message) {
+					// Failed loads are judged by noFailedRequests; the browser logs them here too.
+					return !/^Failed to load resource/u.test(message) && !(options.ignoreConsole?.test(message) ?? false);
+				});
+
+				return errors.length === 0 || `console error: ${errors[0]}`;
+			},
+		},
+		{
+			name: "noFailedRequests",
+			check: function noFailedRequests(step) {
+				const failed = step.failedRequests.filter(function relevant(entry) {
+					return !(options.ignoreRequests?.test(entry) ?? false);
+				});
+
+				return failed.length === 0 || `request failed: ${failed[0]}`;
+			},
+		},
+		{
 			name: "noBrokenValues",
 			check: function noBrokenValues(step) {
 				const broken = [...step.after.text.matchAll(/\b(?:NaN|undefined|Infinity)\b|\[object Object\]|Invalid Date/gu)].find(function notEcho(match) {
-					// The app echoing what the explorer typed (a preview, a search term) is not a broken value.
-					return !step.typed.some(function typedIt(text) {
-						return text.includes(match[0]);
-					});
+					return !isEcho(step.after.text, match.index, match[0].length, step.typed);
 				});
 
 				return broken === undefined || `visible "${broken[0]}"`;
@@ -501,6 +746,53 @@ export function genericProperties() {
 }
 
 /**
+ * A run budget: once `until` passes, sequences are skipped (they pass without running), so fast-check
+ * finishes quickly and no browser run is ever left going in the background.
+ *
+ * @typedef {object} Budget
+ * @property {number} until - Epoch milliseconds after which runs are skipped.
+ * @property {number} ran - Sequences actually run.
+ */
+
+/**
+ * Which calls of a property run. Replay runs only the first call (the recorded case); shrinking runs
+ * the rest only if the first call failed again, so it never wanders to a different failure.
+ *
+ * @typedef {object} Gate
+ * @property {"all" | "first" | "after-first-fails"} mode - Which calls run.
+ * @property {boolean} [firstPassed] - Set when the first call passed.
+ * @property {string[]} [firstLog] - Actions of the first call.
+ */
+
+/**
+ * The property fast-check checks: one sequence against a fresh page, skipped once the budget is spent
+ * or when the gate says so (a skipped call passes without running).
+ *
+ * @param {Parameters<typeof explore>[0]} options - Exploration options.
+ * @param {Property[]} properties - Properties to check.
+ * @param {Budget} budget - Run budget.
+ * @param {Gate} gate - Which calls run.
+ * @param {string} [replayPath] - Replay path of a recorded finding.
+ * @returns {fc.IAsyncPropertyWithHooks<[Iterable<object>]>} The property.
+ */
+function sequenceProperty(options, properties, budget, gate, replayPath) {
+	let calls = 0;
+
+	return fc.asyncProperty(sequences(options, replayPath), async function sequence(cmds) {
+		const log = [];
+
+		calls += 1;
+		if (Date.now() >= budget.until) return;
+		if (gate.mode === "first" && calls > 1) return;
+		if (gate.mode === "after-first-fails" && calls > 1 && gate.firstPassed) return;
+		if (calls === 1) gate.firstLog = log;
+		budget.ran += 1;
+		await runSequence(options, properties, cmds, log);
+		if (calls === 1) gate.firstPassed = true;
+	});
+}
+
+/**
  * Explore a page: run random action sequences, check the properties after each action, and shrink
  * each violation to a short sequence. With `keepGoing`, a violated property is set aside and the
  * search continues for the others until the time limit.
@@ -517,67 +809,57 @@ export function genericProperties() {
  * @param {number} [options.timeLimitMs] - Search budget (default 2 minutes).
  * @param {number} [options.shrinkMs] - Shrinking budget per finding, on top of the search budget (default 2 minutes).
  * @param {number} [options.settleMs] - Settle budget per action (default 3000).
+ * @param {number} [options.actionTimeoutMs] - Timeout for one click, fill or select (default 1000).
  * @param {number} [options.seed] - Seed for the first round.
  * @param {boolean} [options.keepGoing] - Continue past the first finding.
  * @param {(finding: Finding) => void} [options.onFinding] - Called as each finding is shrunk.
- * @returns {Promise<{ findings: Finding[], runs: number, ms: number }>} Report.
+ * @returns {Promise<{ findings: Finding[], runs: number, ms: number }>} Report; `runs` counts search sequences.
  */
 export async function explore(options) {
+	const timeLimitMs = options.timeLimitMs ?? 120_000;
+
+	if (!Number.isFinite(timeLimitMs) || timeLimitMs <= 0) throw new Error(`timeLimitMs must be a positive number of milliseconds, got ${options.timeLimitMs}`);
+
 	const started = Date.now();
-	const deadline = started + (options.timeLimitMs ?? 120_000);
+	const search = { until: started + timeLimitMs, ran: 0 };
 	const findings = [];
 	const skipped = new Set();
-	let runs = 0;
 	let seed = options.seed ?? Date.now() % 2 ** 31;
 
-	while (Date.now() < deadline) {
+	while (Date.now() < search.until) {
 		const active = options.properties.filter(function notFound(property) {
 			return !skipped.has(property.name);
 		});
 
 		if (active.length === 0) break;
 
-		const property = fc.asyncProperty(sequences(options), async function sequence(cmds) {
-			runs += 1;
-			await runSequence(options, active, cmds);
-		});
 		// Search until the first failure without shrinking, so the time limit bounds only the search.
-		const found = await fc.check(property, {
-			numRuns: options.numRuns ?? 200,
-			seed,
-			endOnFailure: true,
-			interruptAfterTimeLimit: Math.max(1, deadline - Date.now()),
-			markInterruptAsFailure: false,
-		});
-		// Then shrink from that exact case with its own budget: a failure found late still gets a
-		// short reproduction.
-		const shrunk = found.failed
-			? await fc.check(property, {
-					seed: found.seed,
-					path: found.counterexamplePath ?? undefined,
-					interruptAfterTimeLimit: options.shrinkMs ?? 120_000,
-					markInterruptAsFailure: false,
-				})
-			: found;
-		const result = shrunk.failed ? shrunk : found;
+		const found = await fc.check(sequenceProperty(options, active, search, { mode: "all" }), { numRuns: options.numRuns ?? 200, seed, endOnFailure: true });
 
-		if (!result.failed) {
-			// A clean round: keep searching with a fresh seed until the time limit.
-			if (result.interrupted) break;
+		if (!found.failed) {
 			seed += 1;
 			continue;
 		}
 
+		// Then shrink from that exact case with its own budget. If the case does not fail again on its
+		// first rerun, nothing else is run, so the shrink cannot wander to a different failure.
+		const shrinkBudget = { until: Date.now() + (options.shrinkMs ?? 120_000), ran: 0 };
+		const shrunk = await fc.check(sequenceProperty(options, active, shrinkBudget, { mode: "after-first-fails" }), {
+			seed: found.seed,
+			path: found.counterexamplePath ?? undefined,
+		});
+		const result = shrunk.failed ? shrunk : found;
 		const violation = result.errorInstance instanceof PropertyViolation ? result.errorInstance : null;
+		const property = violation?.property ?? "harness";
 		const replayPath = /replayPath="([^"]*)"/u.exec(String(result.counterexample?.[0] ?? ""))?.[1] ?? "";
 		const location = { seed: result.seed, path: result.counterexamplePath ?? "", replayPath };
-		const again = await replay({ ...options, properties: active }, location);
+		const again = await replay(options, { ...location, property });
 		const finding = {
-			property: violation?.property ?? "harness",
-			message: violation?.detail ?? String(result.errorInstance ?? result.error),
+			property,
+			message: violation?.detail ?? String(result.errorInstance),
 			actions: again.actions,
 			...location,
-			reproduced: again.failed && again.property === (violation?.property ?? "harness"),
+			reproduced: again.failed && again.property === property,
 		};
 
 		findings.push(finding);
@@ -587,40 +869,37 @@ export async function explore(options) {
 		seed += 1;
 	}
 
-	return { findings, runs, ms: Date.now() - started };
+	if (search.ran === 0 && findings.length === 0) throw new Error("no sequence ran within the time limit; raise timeLimitMs");
+
+	return { findings, runs: search.ran, ms: Date.now() - started };
 }
 
 /**
- * Replay one finding: rerun exactly its shrunk sequence in a fresh context and report what happened.
+ * Replay one finding: rerun exactly its shrunk sequence, once, in a fresh context, judged by the
+ * finding's own property (all properties when it has none or was a harness failure).
  *
  * @param {Parameters<typeof explore>[0]} options - The options the finding was found with.
- * @param {{ seed: number, path: string, replayPath: string }} finding - Location from the report.
+ * @param {{ seed: number, path: string, replayPath: string, property?: string }} finding - Location from the report.
  * @returns {Promise<{ failed: boolean, property: string | null, message: string, actions: string[] }>} Replay result.
  */
 export async function replay(options, finding) {
-	let actions = [];
-	const result = await fc.check(
-		fc.asyncProperty(
-			sequences(options, finding.replayPath),
-			async function sequence(cmds) {
-				const log = [];
-
-				try {
-					await runSequence(options, options.properties, cmds, log);
-				} finally {
-					actions = log;
-				}
-			},
-		),
-		{ seed: finding.seed, path: finding.path, endOnFailure: true },
-	);
+	const judged = options.properties.filter(function own(property) {
+		return property.name === finding.property;
+	});
+	const properties = judged.length > 0 ? judged : options.properties;
+	const gate = { mode: "first" };
+	const result = await fc.check(sequenceProperty(options, properties, { until: Number.POSITIVE_INFINITY, ran: 0 }, gate, finding.replayPath), {
+		seed: finding.seed,
+		path: finding.path,
+		endOnFailure: true,
+	});
 	const violation = result.errorInstance instanceof PropertyViolation ? result.errorInstance : null;
 
 	return {
 		failed: result.failed,
 		property: result.failed ? (violation?.property ?? "harness") : null,
-		message: result.failed ? String(violation?.message ?? result.errorInstance ?? result.error) : "no longer fails",
-		actions,
+		message: result.failed ? String(violation?.detail ?? result.errorInstance) : "no longer fails",
+		actions: gate.firstLog ?? [],
 	};
 }
 
@@ -641,7 +920,8 @@ function sequences(options, replayPath) {
 }
 
 /**
- * Run one generated sequence in a fresh browser context.
+ * Run one generated sequence in a fresh browser context: load the page, judge the loaded state,
+ * then run the commands.
  *
  * @param {Parameters<typeof explore>[0]} options - Exploration options.
  * @param {Property[]} properties - Properties to check.
@@ -651,31 +931,53 @@ function sequences(options, replayPath) {
  */
 async function runSequence(options, properties, cmds, log = []) {
 	const context = await options.browser.newContext();
-	const page = await context.newPage();
-	const real = {
-		page,
-		extract:
-			options.extract ??
-			async function none() {
-				return null;
-			},
-		properties,
-		errors: [],
-		settleMs: options.settleMs ?? 3000,
-		actionTimeoutMs: 1000,
-		log,
-		typed: [],
-	};
-
-	page.on("pageerror", function collect(error) {
-		real.errors.push(error.message);
-	});
-	page.on("dialog", function dismiss(dialog) {
-		dialog.dismiss().catch(function ignore() {});
-	});
 
 	try {
+		const page = await context.newPage();
+		const actionTimeoutMs = options.actionTimeoutMs ?? 1000;
+		const real = {
+			page,
+			extract:
+				options.extract ??
+				async function none() {
+					return null;
+				},
+			properties,
+			events: { errors: [], consoleErrors: [], failedRequests: [] },
+			reported: { errors: 0, consoleErrors: 0, failedRequests: 0 },
+			settleMs: options.settleMs ?? 3000,
+			actionTimeoutMs,
+			log,
+			typed: [],
+		};
+
+		page.setDefaultTimeout(Math.max(5000, actionTimeoutMs * 5));
+		page.on("pageerror", function collect(error) {
+			real.events.errors.push(error.message);
+		});
+		page.on("console", function collect(message) {
+			if (message.type() === "error") real.events.consoleErrors.push(message.text());
+		});
+		page.on("requestfailed", function collect(request) {
+			const reason = request.failure()?.errorText ?? "failed";
+
+			// Aborted requests are the browser cancelling work on navigation, not failures.
+			if (!/ERR_ABORTED|NS_BINDING_ABORTED/u.test(reason)) real.events.failedRequests.push(`${request.method()} ${request.url()}: ${reason}`);
+		});
+		page.on("response", function collect(response) {
+			if (response.status() >= 500) real.events.failedRequests.push(`${response.request().method()} ${response.url()}: ${response.status()}`);
+		});
+		page.on("dialog", function dismiss(dialog) {
+			dialog.dismiss().catch(function ignore() {});
+		});
+
 		await page.goto(options.url);
+
+		const settled = await settle(page, real.settleMs);
+		const loaded = await snapshot(real);
+
+		// The first state is judged too: errors during load must not vanish before the first action.
+		check(real, { action: "load page", before: loaded, after: loaded, ...newEvents(real), settled, typed: [] });
 
 		const model = await targets(page);
 

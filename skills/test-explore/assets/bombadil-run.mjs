@@ -99,6 +99,16 @@ export function locateBombadil(from) {
 	}
 }
 
+/** System-wide Chrome and Chromium locations, which Bombadil finds on its own. */
+const SYSTEM_BROWSERS = [
+	"/usr/bin/google-chrome-stable",
+	"/usr/bin/google-chrome",
+	"/usr/bin/chromium-browser",
+	"/usr/bin/chromium",
+	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+	"/Applications/Chromium.app/Contents/MacOS/Chromium",
+];
+
 /**
  * Find a Chromium or Chrome executable for Bombadil, which reads the CHROME variable before
  * searching PATH. Playwright's downloaded browsers are a common source in CI and containers.
@@ -109,16 +119,7 @@ export function locateBombadil(from) {
 export function locateChrome(env) {
 	if (env.CHROME) return env.CHROME;
 
-	const candidates = [
-		"/usr/bin/google-chrome-stable",
-		"/usr/bin/google-chrome",
-		"/usr/bin/chromium-browser",
-		"/usr/bin/chromium",
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-	];
-
-	if (candidates.some(existsSync)) return undefined;
+	if (!env.IGNORE_SYSTEM_BROWSERS && SYSTEM_BROWSERS.some(existsSync)) return undefined;
 
 	const roots = [env.PLAYWRIGHT_BROWSERS_PATH, join(homedir(), ".cache", "ms-playwright"), join(homedir(), "Library", "Caches", "ms-playwright")];
 
@@ -129,8 +130,9 @@ export function locateChrome(env) {
 			.filter(function isChromium(entry) {
 				return /^chromium-\d+$/u.test(entry);
 			})
-			.sort()
-			.reverse();
+			.sort(function newestFirst(a, b) {
+				return Number(b.slice("chromium-".length)) - Number(a.slice("chromium-".length));
+			});
 
 		for (const build of builds) {
 			for (const relative of ["chrome-linux/chrome", "chrome-linux64/chrome", "chrome-mac/Chromium.app/Contents/MacOS/Chromium", "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium"]) {
@@ -142,6 +144,21 @@ export function locateChrome(env) {
 	}
 
 	return undefined;
+}
+
+/**
+ * Find a Chromium or Chrome executable for a driver that needs an explicit path (Playwright with a
+ * system browser): CHROME, then a system Chrome or Chromium, then a Playwright download.
+ *
+ * @param {NodeJS.ProcessEnv} env - Environment.
+ * @returns {string | undefined} Executable path, or undefined when none was found.
+ */
+export function findChromium(env) {
+	if (env.CHROME) return env.CHROME;
+
+	const system = SYSTEM_BROWSERS.find(existsSync);
+
+	return system ?? locateChrome({ ...env, CHROME: undefined, IGNORE_SYSTEM_BROWSERS: "1" });
 }
 
 /**

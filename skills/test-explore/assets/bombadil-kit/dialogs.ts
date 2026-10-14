@@ -7,7 +7,7 @@ import { isShown } from "./dom.ts";
 const ESCAPE = 27;
 
 const modal = extract(function readModal(state) {
-	const open = Array.from(state.document.querySelectorAll("dialog:modal, [role=dialog][aria-modal=true], [role=alertdialog]")).filter(isShown);
+	const open = Array.from(state.document.querySelectorAll("dialog:modal, [role=dialog][aria-modal=true], [role=alertdialog][aria-modal=true]")).filter(isShown);
 	const top = open.at(-1) ?? null;
 	const active = state.document.activeElement;
 

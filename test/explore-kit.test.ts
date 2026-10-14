@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { HOSTILE_TEXT, KEYS, defaultCommands, genericProperties } from "../skills/test-explore/assets/fast-check-explore.mjs";
+import { parseDuration } from "../examples/buggy-shop/fast-check/explore.mjs";
+import { HOSTILE_TEXT, KEYS, defaultCommands, genericProperties, isEcho } from "../skills/test-explore/assets/fast-check-explore.mjs";
 
 type Snapshot = { text: string; modalOpen: boolean; busy: boolean; injected: boolean; app: unknown };
 
@@ -13,7 +14,17 @@ const calm: Snapshot = { text: "Cart $12.50", modalOpen: false, busy: false, inj
  * @returns A step as the properties receive it.
  */
 function step(overrides: Record<string, unknown> = {}) {
-	return { action: "click button", before: calm, after: calm, errors: [], settled: true, typed: [], ...overrides };
+	return {
+		action: "click button",
+		before: calm,
+		after: calm,
+		errors: [],
+		consoleErrors: [],
+		failedRequests: [],
+		settled: true,
+		typed: [],
+		...overrides,
+	};
 }
 
 /**
@@ -22,9 +33,9 @@ function step(overrides: Record<string, unknown> = {}) {
  * @param overrides - Step fields to change.
  * @returns Property name to verdict.
  */
-function verdicts(overrides: Record<string, unknown> = {}): Record<string, boolean | string> {
+function verdicts(overrides: Record<string, unknown> = {}, options: Parameters<typeof genericProperties>[0] = {}): Record<string, boolean | string> {
 	return Object.fromEntries(
-		genericProperties().map(function judge(property) {
+		genericProperties(options).map(function judge(property) {
 			return [property.name, property.check(step(overrides) as Parameters<typeof property.check>[0])];
 		}),
 	);
@@ -32,7 +43,7 @@ function verdicts(overrides: Record<string, unknown> = {}): Record<string, boole
 
 describe("generic properties", function genericSuite() {
 	test("a calm step passes every property", function calmStep() {
-		expect(Object.values(verdicts())).toEqual([true, true, true, true, true]);
+		expect(Object.values(verdicts())).toEqual([true, true, true, true, true, true, true]);
 	});
 
 	test("an uncaught error names the error", function uncaught() {
@@ -50,6 +61,23 @@ describe("generic properties", function genericSuite() {
 	test("ignores the app echoing what the explorer typed, but not other broken values", function echo() {
 		expect(verdicts({ after: { ...calm, text: "Note: NaN" }, typed: ["NaN"] }).noBrokenValues).toBe(true);
 		expect(verdicts({ after: { ...calm, text: "Note: NaN, total undefined" }, typed: ["NaN"] }).noBrokenValues).toBe('visible "undefined"');
+	});
+
+	test("an echo is only the typed text's own occurrence, not any later broken value", function echoSpan() {
+		expect(isEcho("Note: NaN", 6, 3, ["NaN"])).toBe(true);
+		expect(isEcho("Total $NaN", 7, 3, ["Note NaN"])).toBe(false);
+		expect(verdicts({ after: { ...calm, text: "Note: hi NaN. Total $NaN" }, typed: ["hi NaN"] }).noBrokenValues).toBe('visible "NaN"');
+	});
+
+	test("console errors fail, except failed-load noise and ignored messages", function consoleErrors() {
+		expect(verdicts({ consoleErrors: ["TypeError: x is undefined"] }).noConsoleErrors).toBe("console error: TypeError: x is undefined");
+		expect(verdicts({ consoleErrors: ["Failed to load resource: the server responded with a status of 404"] }).noConsoleErrors).toBe(true);
+		expect(verdicts({ consoleErrors: ["[MSW] Warning"] }, { ignoreConsole: /^\[MSW\]/u }).noConsoleErrors).toBe(true);
+	});
+
+	test("failed requests fail unless ignored", function requests() {
+		expect(verdicts({ failedRequests: ["GET http://app/api: 500"] }).noFailedRequests).toBe("request failed: GET http://app/api: 500");
+		expect(verdicts({ failedRequests: ["GET http://app/analytics: 503"] }, { ignoreRequests: /analytics/u }).noFailedRequests).toBe(true);
 	});
 
 	test("executed markup fails the injection property", function injected() {
@@ -77,7 +105,7 @@ describe("default commands", function commandsSuite() {
 			return String(command).split(" ")[0];
 		});
 
-		expect(new Set(names)).toEqual(new Set(["click", "type", "press", "wait"]));
+		expect(new Set(names)).toEqual(new Set(["click", "type", "press", "select", "wait"]));
 	});
 
 	test("typing draws from the hostile set, including markup that reports execution", function hostile() {
@@ -99,5 +127,23 @@ describe("default commands", function commandsSuite() {
 			});
 
 		expect(new Set(names)).toEqual(new Set(["press F2", "wait 5 ms"]));
+	});
+});
+
+describe("the demo's time limit", function durationSuite() {
+	test.each([
+		["90", 90_000],
+		["90s", 90_000],
+		["2m", 120_000],
+		["1.5m", 90_000],
+		["500ms", 500],
+	])("parses %s", function parses(text, ms) {
+		expect(parseDuration(text)).toBe(ms);
+	});
+
+	test.each(["", "2h", "fast", "-5"])("rejects %j instead of running with no budget", function rejects(text) {
+		expect(function parse() {
+			return parseDuration(text);
+		}).toThrow(/invalid duration/u);
 	});
 });

@@ -15,9 +15,16 @@ Copy `assets/fast-check-explore.mjs` from this skill's folder into the repositor
 | --- | --- |
 | `explore(options)` | Searches until the time limit, then shrinks each violation on its own budget and replays it |
 | `replay(options, finding)` | Reruns one finding from its `seed`, `path` and `replayPath` |
-| `genericProperties()` | `noUncaughtErrors`, `noBrokenValues`, `injectedTextStaysInert`, `escapeClosesDialogs`, `busyIndicatorsSettle` |
-| `defaultCommands()` | Click, type (hostile text), press a key, wait; targets resolved when the command runs |
-| `HOSTILE_TEXT`, `KEYS` | The value sets the default commands draw from |
+| `genericProperties(options)` | `noUncaughtErrors`, `noConsoleErrors`, `noFailedRequests`, `noBrokenValues`, `injectedTextStaysInert`, `escapeClosesDialogs`, `busyIndicatorsSettle`; `ignoreConsole` and `ignoreRequests` regexes for known-harmless noise |
+| `defaultCommands()` | Click, type (hostile text), choose a select option, press a key, wait; targets resolved when the command runs |
+| `Click`, `Type`, `SelectOption`, `Press`, `Wait`, `runStep` | The command classes, and the step runner a custom workflow command calls so its steps are judged |
+| `HOSTILE_TEXT`, `KEYS`, `CLICKABLE`, `TYPEABLE`, `MODAL`, `BUSY` | The value sets and selectors the commands use |
+
+A finding whose `property` is `"harness"` means the harness failed (the page did not load, a
+command crashed), not the app: treat it like a broken run (exit 1), never as a found bug. A
+property whose `check` throws is reported as a violation of that property with "check threw", so
+a bug in a property does not end the exploration. Invalid time limits throw instead of running
+nothing. `examples/explore-kit/verify.mjs` in this repository checks these behaviors in Chromium.
 
 A complete harness is the kit plus an extractor and one or two domain properties; see
 `examples/buggy-shop/fast-check/explore.mjs` in this repository.
@@ -58,12 +65,21 @@ process.exitCode = report.findings.length > 0 ? 2 : 0;
 
 ## How a property sees a step
 
-Each property gets `{ action, before, after, errors, settled, typed }`: the action description,
-snapshots before and after (visible text, open modal, busy indicator, injection sentinel, and
-whatever `extract` returned under `app`), uncaught page errors raised during the action, whether
-busy indicators cleared within the settle budget, and every text typed so far. Return `true`
-when the rule holds, or a message when it does not. Transition rules (after Escape, the modal is
-closed) compare `before` and `after`; temporal bounds come from the settle budget.
+Each property gets the step: the action description, snapshots before and after (visible text,
+open modal, busy indicator, injection sentinel, and whatever `extract` returned under `app`),
+uncaught page errors, console errors and failed requests recorded during the action, whether
+busy indicators cleared within the settle budget, and every text typed so far. The kit's JSDoc
+lists the exact field names. Return `true` when the rule holds, or a message when it does not.
+Transition rules (after Escape, the modal is closed) compare `before` and `after`; temporal
+bounds come from the settle budget.
+
+- **Modal:** an open `dialog:modal`, or a visible `[role=dialog]` or `[role=alertdialog]` with
+  `aria-modal="true"`. Visibility everywhere in the kit means `checkVisibility()`, so elements
+  hidden by `display`, `visibility` or a closed ancestor do not count.
+- **`noConsoleErrors`** fails on a `console.error` during the action and **`noFailedRequests`** on
+  a request that failed during it. An app that logs errors on purpose, or a third-party script
+  the harness did not fake, trips both on a healthy build: fix the harness or drop the property
+  for that app with the reason recorded.
 
 ## Commands
 
@@ -73,14 +89,36 @@ closed) compare `before` and `after`; temporal bounds come from the settle budge
 - **Scope to the open modal.** Elements behind a modal are inert; the kit only offers the modal's
   own controls while one is open.
 - **Declare applicability in the model.** After every action the kit counts what is clickable and
-  typeable, and a command's `check(model)` refuses to run without a target. fast-check then never
-  generates "type into nothing" and drops such steps when shrinking; without it, a five-step bug
-  came back as a fourteen-step reproduction full of no-ops.
+  typeable, and a command's `check(model)` refuses to run without a target. fast-check then skips
+  "type into nothing" at run time (`check(model)` is evaluated when the command would run) and
+  drops such steps when shrinking; without it, a five-step bug came back as a fourteen-step
+  reproduction full of no-ops.
 - **Treat an action that fails mid-way as a no-op**, not a finding: the target vanished, or a
   number input refused text.
 - **Workflows** that random clicks rarely finish (sign in, a wizard, a payment form) become their
-  own command class: `check(model)` says when it applies, `run(model, real)` performs the steps
-  with generated values. Mix them in with the default commands.
+  own command class: `check(model)` says when it applies, and `run(model, real)` performs each
+  step through `runStep(model, real, description, perform)`, so every step is judged by the
+  properties and the model stays current. Mix them in with the default commands:
+
+  ```js
+  class SignIn {
+  	check(model) {
+  		return model.typeable > 0;
+  	}
+  	async run(model, real) {
+  		await runStep(model, real, "sign in as the demo user", async function perform(page) {
+  			await page.getByLabel("Email").fill("demo@example.com");
+  			await page.getByLabel("Password").fill("demo-password");
+  			await page.getByRole("button", { name: "Sign in" }).click();
+  		});
+  	}
+  	toString() {
+  		return "sign in as the demo user";
+  	}
+  }
+
+  const commands = [...defaultCommands(), fc.constant(new SignIn())];
+  ```
 - **Sequence length matters.** Bugs that need five steps are rarely reached with fast-check's
   default small sizes; the kit uses `size: "medium"` and up to 40 commands. On the demo shop,
   that took the five-step stuck-spinner bug from missed in most runs to found in every run.
@@ -98,11 +136,16 @@ once in a fresh context to record readable actions and confirm it reproduces. Ke
 must build the sequence arbitrary with the same options. Each run uses a fresh browser context,
 so state never leaks between sequences; shrinking reruns many sequences, so keep the time limit.
 
+Wall time is at most `timeLimitMs` plus, per finding, `shrinkMs` and one replay; set the CI job
+timeout above that. The kit treats a time-limit interruption before any sequence completed as
+the end of the budget, not a finding; such a run checked nothing, so raise the time limit rather
+than read its silence as a pass.
+
 ## Races and timing
 
-`fc.scheduler()` reorders promises a component awaits (fetches, timers) under fast-check control
-and shrinks the interleaving that breaks it. Use it at the component or store level with mocked
-I/O, where the exploration above would only hit a race by luck.
+Exploration hits a race only by luck. Races inside a store or component with mocked I/O are
+`test-properties` work: `fc.scheduler()` and `fc.scheduledModelRun` control the order in which
+awaited promises resolve and shrink the interleaving that breaks it.
 
 ## Gotchas
 

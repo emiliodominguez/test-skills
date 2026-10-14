@@ -21,7 +21,23 @@ check demo 2
 check demo:fixed 0
 check demo:cli 2
 check demo:cli:fixed 0
-check demo:fc 2
+# The fast-check demo prints its report as JSON so the check can require the seeded bugs by name,
+# not only an exit code: a harness that finds nothing real must not pass as "found bugs".
+REPORT="$(mktemp)"
+pnpm -s demo:fc --json >"$REPORT"
+code=$?
+echo "demo:fc exit: $code (expected 2)"
+[ "$code" = "2" ] || status=1
+node -e '
+	const report = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+	const found = new Set(report.findings.map(function name(finding) { return finding.property; }));
+	const seeded = ["noUncaughtErrors", "noBrokenValues", "injectedTextStaysInert", "cartTotalAddsUp", "escapeClosesDialogs", "busyIndicatorsSettle"];
+	const hits = seeded.filter(function hit(name) { return found.has(name); });
+	const unreproduced = report.findings.filter(function lost(finding) { return !finding.reproduced; }).length;
+	console.log("demo:fc found " + hits.length + " of " + seeded.length + " seeded bugs: " + hits.join(", ") + "; " + unreproduced + " did not reproduce");
+	process.exit(found.has("harness") || hits.length < 4 || unreproduced > 0 ? 1 : 0);
+' "$REPORT" || status=1
+rm -f "$REPORT"
 check demo:fc:fixed 0
 
 exit $status

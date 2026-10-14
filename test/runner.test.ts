@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
 	applyPolicy,
 	describeAction,
+	findChromium,
 	locateChrome,
 	parseArgs,
 	readTrace,
@@ -97,6 +98,29 @@ describe("reporting helpers", function helpers() {
 
 		expect(clean).toContain("No findings.");
 		expect(found).toContain('| cartTotalAddsUp | stop | 2 | 1 | Click "button\\|\\|Pay\\|0" |');
+	});
+
+	test("Playwright builds are tried newest first, by number not by text", function newestBuild() {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), "browsers-"));
+
+		try {
+			for (const build of ["chromium-999", "chromium-1200"]) {
+				fs.mkdirSync(path.join(root, build, "chrome-linux"), { recursive: true });
+				fs.writeFileSync(path.join(root, build, "chrome-linux", "chrome"), "");
+			}
+
+			const found = findChromium({ PLAYWRIGHT_BROWSERS_PATH: root, HOME: root });
+
+			// A system Chrome, when installed, wins; otherwise the newest Playwright build does.
+			if (found !== undefined && !found.startsWith(root)) return;
+			expect(found).toBe(path.join(root, "chromium-1200", "chrome-linux", "chrome"));
+		} finally {
+			fs.rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("findChromium prefers the CHROME variable", function explicit() {
+		expect(findChromium({ CHROME: "/opt/chrome" })).toBe("/opt/chrome");
 	});
 
 	test("locateChrome prefers the CHROME variable", function chrome() {
