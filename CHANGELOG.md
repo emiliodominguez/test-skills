@@ -38,7 +38,7 @@
   with `--prune-clean`.
 - CI is manual-only; `pnpm verify` runs the gate and both demos locally.
 - `pnpm dogfood`: mutation testing of the bundled scripts with floors (audit 75%, guard 80%, repeat
-  85%; measured 82.5%, 92.4% and 94.1%), plus tests for the audit CLI, the guard's edge cases and `repeat.mjs`.
+  85%; measured 89.2%, 90.8% and 94.1%), plus tests for the audit CLI, the guard's edge cases and `repeat.mjs`.
 - Fixed: the audit and mutation scanners treated quotes inside regex literals as strings, hiding
   findings and producing invalid mutants.
 - Fixed: the guard now flags a test file renamed to a name the runner does not collect.
