@@ -13,6 +13,9 @@
 //
 //   CHROME=/path/to/chromium node examples/accessibility/verify.mjs
 //
+// CHROME is optional: it names a Chromium executable to launch. Without it, playwright-core uses
+// the browser Playwright installed (`npx playwright install chromium`).
+//
 // Prints one line per claim and exits 0 only when all of them hold.
 
 import { readFileSync } from "node:fs";
@@ -68,6 +71,8 @@ const EMAIL_ERROR = "Enter an email address, like name@example.com.";
  * @typedef {object} Outcome
  * @property {boolean} pass - Whether the check held.
  * @property {string} detail - What was observed.
+ * @property {boolean} [threw] - True when the check threw instead of reaching a verdict; such an
+ *   outcome never counts as catching a bug.
  */
 
 /**
@@ -498,7 +503,7 @@ const BROWSER_CHECKS = [
  * @param {import("playwright-core").Browser} browser - The browser.
  * @param {BrowserCheck} check - The check.
  * @param {string[]} bugs - Bug names to seed.
- * @returns {Promise<Outcome>} Outcome; a thrown error counts as a failed check.
+ * @returns {Promise<Outcome>} Outcome; a thrown error is marked `threw`, never a verdict.
  */
 async function runCheck(browser, check, bugs) {
 	const page = await openPage(browser, bugs, check.pageOptions);
@@ -506,7 +511,7 @@ async function runCheck(browser, check, bugs) {
 	try {
 		return await check.run(page);
 	} catch (error) {
-		return { pass: false, detail: `threw: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}` };
+		return { pass: false, threw: true, detail: `threw: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}` };
 	} finally {
 		await page.close();
 	}
@@ -578,7 +583,8 @@ async function scanInJsdom(bugs) {
  * Run axe twice in the page, with its defaults and with the WCAG tags. Runs in the page.
  *
  * @param {string[]} tags - axe rule tags.
- * @returns {Promise<{ byDefault: string[], withTags: string[] }>} Violated rule ids per run.
+ * @returns {Promise<{ byDefault: string[], withTags: string[], targetSizeNodes: number }>} Violated
+ *   rule ids per run, and how many nodes the tagged run flagged for `target-size`.
  */
 async function runAxeTwiceInPage(tags) {
 	/**
@@ -593,9 +599,15 @@ async function runAxeTwiceInPage(tags) {
 		});
 	}
 
+	const tagged = await window.axe.run(document, { runOnly: { type: "tag", values: tags } });
+	const targetSize = tagged.violations.find(function isTargetSize(violation) {
+		return violation.id === "target-size";
+	});
+
 	return {
 		byDefault: violatedRules(await window.axe.run(document)),
-		withTags: violatedRules(await window.axe.run(document, { runOnly: { type: "tag", values: tags } })),
+		withTags: violatedRules(tagged),
+		targetSizeNodes: targetSize ? targetSize.nodes.length : 0,
 	};
 }
 
@@ -603,7 +615,8 @@ async function runAxeTwiceInPage(tags) {
  * Scan two 16-pixel icon buttons two pixels apart: too small for 2.5.8 Target Size (Minimum).
  *
  * @param {import("playwright-core").Browser} browser - The browser.
- * @returns {Promise<{ byDefault: string[], withTags: string[] }>} Violated rule ids per run.
+ * @returns {Promise<{ byDefault: string[], withTags: string[], targetSizeNodes: number }>} Violated
+ *   rule ids per run and the number of `target-size` nodes.
  */
 async function scanSmallTargets(browser) {
 	const page = await browser.newPage();
@@ -626,7 +639,7 @@ async function scanSmallTargets(browser) {
  * Check every claim and set the exit code.
  */
 async function main() {
-	const browser = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" });
+	const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
 	const allBugs = [...AXE_BUGS, ...BEYOND_AXE_BUGS];
 
 	try {
@@ -663,20 +676,22 @@ async function main() {
 		for (const check of BROWSER_CHECKS) {
 			const outcome = await runCheck(browser, check, [check.bug]);
 
-			report(!outcome.pass, `${check.name} (${check.wcag}) catches ${check.bug}, which axe missed`, outcome.detail);
+			report(!outcome.pass && !outcome.threw, `${check.name} (${check.wcag}) catches ${check.bug}, which axe missed`, outcome.detail);
 		}
 
 		const failingOnSeeded = [];
+		const notFailingOnSeeded = [];
 
 		for (const check of BROWSER_CHECKS) {
 			const outcome = await runCheck(browser, check, allBugs);
 
-			if (!outcome.pass) failingOnSeeded.push(check.name);
+			if (!outcome.pass && !outcome.threw) failingOnSeeded.push(check.name);
+			else notFailingOnSeeded.push(`${check.name}: ${outcome.threw ? outcome.detail : "passed"}`);
 		}
 		report(
 			failingOnSeeded.length === BROWSER_CHECKS.length,
 			`all ${BROWSER_CHECKS.length} browser checks also fail with every bug seeded at once`,
-			`${failingOnSeeded.length} failed`,
+			`failed: ${failingOnSeeded.join(", ") || "none"}${notFailingOnSeeded.length > 0 ? `; did not fail: ${notFailingOnSeeded.join("; ")}` : ""}`,
 		);
 
 		const fixed = await scanEveryState(browser, []);
@@ -710,9 +725,9 @@ async function main() {
 		const targets = await scanSmallTargets(browser);
 
 		report(
-			!targets.byDefault.includes("target-size") && targets.withTags.includes("target-size"),
-			"a default axe run skips target-size (2.5.8); the wcag22aa tag catches two 16px buttons",
-			`default: ${targets.byDefault.join(", ") || "none"}; with tags: ${targets.withTags.join(", ")}`,
+			!targets.byDefault.includes("target-size") && targets.withTags.includes("target-size") && targets.targetSizeNodes === 2,
+			"a default axe run skips target-size (2.5.8); the wcag22aa tag flags both 16px buttons",
+			`default: ${targets.byDefault.join(", ") || "none"}; with tags: ${targets.withTags.join(", ")}; target-size nodes: ${targets.targetSizeNodes}`,
 		);
 	} finally {
 		await browser.close();

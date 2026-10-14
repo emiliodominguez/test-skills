@@ -8,10 +8,11 @@ repository measures screen reader output.
 
 - Once per release on the top flows (sign in, search, checkout, the main form), and after any
   change to a custom widget, dialog or live region.
-- About ten minutes per flow per pairing. Two pairings cover most users: NVDA with Firefox or
-  Chrome on Windows, and VoiceOver with Safari on macOS. Add VoiceOver on iOS Safari or TalkBack
-  on Android Chrome when the flow ships to mobile web. Add JAWS with Chrome when users or a
-  contract require it.
+- About ten minutes per flow per pairing. JAWS and NVDA are the most used desktop screen readers
+  in WebAIM's screen reader user survey, and VoiceOver dominates on mobile. At least: NVDA with
+  Chrome or Firefox on Windows, and VoiceOver with Safari on macOS. Add JAWS with Chrome when the
+  budget allows (or users or a contract require it). On mobile web, VoiceOver with Safari on iOS
+  first, then TalkBack with Chrome on Android. Check the latest survey before fixing the list.
 - Default screen reader settings, the production build, a clean profile. Record versions: screen
   readers and browsers change announcements between releases.
 

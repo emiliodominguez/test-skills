@@ -36,7 +36,9 @@ baseline set per OS; otherwise render everywhere in the same container and drop 
 The test guard's `updated-snapshots` rule matches `__snapshots__/` and `__screenshots__/`
 folders, image files under `-snapshots/` folders, Loki's `.loki/reference/` and BackstopJS's
 `bitmaps_reference/`. Baselines in any other custom folder pass the guard unseen: keep them under
-a matched path or review them by hand.
+a matched path or review them by hand. Its `raised-tolerance` rule flags a raised
+`maxDiffPixels` or `maxDiffPixelRatio` in test files and runner configs; a raised per-pixel
+`threshold`, or an allowance held in a custom constant, passes it unseen.
 
 ## `toHaveScreenshot` options
 
@@ -50,7 +52,8 @@ a matched path or review them by hand.
 | `mask`, `maskColor` | none, pink | Paints over locators: dynamic regions that are asserted elsewhere |
 | `stylePath` | none | CSS applied only while capturing; pierces shadow DOM and frames |
 | `scale` | `"css"` | One image pixel per CSS pixel, independent of `deviceScaleFactor` |
-| `fullPage`, `clip`, `omitBackground` | off | Page screenshots only |
+| `fullPage`, `clip` | off | Page screenshots only |
+| `omitBackground` | off | Transparent instead of the default white background; page and locator screenshots |
 | `timeout` | expect timeout | How long to wait for a stable screenshot |
 
 Behaviors that change decisions:
@@ -108,20 +111,26 @@ html {
 Run screenshot tests in the official image pinned to the installed version, locally and in CI:
 
 ```sh
-docker run --rm --ipc=host -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.64.0-noble \
-  npx playwright test --project=visual
+# The anonymous /work/node_modules volume hides the host's node_modules: install inside the image.
+docker run --rm --ipc=host -v "$PWD":/work -v /work/node_modules -w /work \
+  mcr.microsoft.com/playwright:v1.64.0-noble sh -c "npm ci && npx playwright test --project=visual"
 ```
+
+Install dependencies inside the image (as above, or in a Dockerfile `FROM` the pinned image), never
+by mounting the host's `node_modules`: packages with native or platform-specific builds installed
+on macOS or Windows break or behave differently in the Linux container.
 
 The image tag must match `@playwright/test` exactly (tags `v1.64.0-noble` and `v1.64.0-jammy` exist
 in the registry). The browser build matters as much as the OS: this repository's examples ran a
 Chromium 141 binary under Playwright 1.64, whose bundled Chromium is 156; baselines recorded with
 one build are not portable to the other. Record and compare with the same binary.
 
-A separate project keeps visual tests out of the functional suite's matrix:
+A separate project keeps visual tests out of the functional suite's matrix, with no retries:
 
 ```js
 projects: [
 	{ name: "e2e", testIgnore: /visual/ },
-	{ name: "visual", testMatch: /visual\/.*\.spec\./, use: { browserName: "chromium" } },
+	// retries: 0, because a retried screenshot that happens to match turns a flake green.
+	{ name: "visual", testMatch: /visual\/.*\.spec\./, retries: 0, use: { browserName: "chromium" } },
 ],
 ```

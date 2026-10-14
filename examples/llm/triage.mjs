@@ -50,6 +50,16 @@ export function createTools() {
  */
 
 /**
+ * Escape markup characters so customer text cannot close or open the `<ticket>` fence.
+ *
+ * @param {string} text - Customer-controlled text.
+ * @returns {string} The text with `&`, `<`, `>` and `"` replaced by entities.
+ */
+function escapeFenced(text) {
+	return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;");
+}
+
+/**
  * Assemble the system prompt and messages for a ticket.
  *
  * @param {Ticket} ticket - The ticket to triage.
@@ -70,7 +80,14 @@ export function buildPrompt(ticket, options = {}) {
 
 	return {
 		system,
-		messages: [{ role: "user", content: `<ticket id="${ticket.id}">\nSubject: ${ticket.subject}\n\n${ticket.body}\n</ticket>` }],
+		// Escaped, so a body that contains "</ticket>" stays inside the fence. The fence marks data for
+		// the model; it lowers the odds of injection, it does not prevent it.
+		messages: [
+			{
+				role: "user",
+				content: `<ticket id="${escapeFenced(ticket.id)}">\nSubject: ${escapeFenced(ticket.subject)}\n\n${escapeFenced(ticket.body)}\n</ticket>`,
+			},
+		],
 	};
 }
 

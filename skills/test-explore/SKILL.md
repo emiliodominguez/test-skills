@@ -24,8 +24,11 @@ checks the rules on the paths nobody did.
 Use what the repository already has. Adding a driver is a dependency decision: ask first. Read the
 driver's reference before writing code: [bombadil.md](references/bombadil.md) and
 [bombadil-spec.md](references/bombadil-spec.md), [fast-check.md](references/fast-check.md), or
-[hypothesis.md](references/hypothesis.md). Mobile apps have no mature autonomous driver: explore
-the state layer with model-based tests (`test-properties`) and keep device tours scripted.
+[hypothesis.md](references/hypothesis.md). Mobile crawlers (Firebase Robo test, adb shell monkey,
+Fastbot) find crashes and ANRs but check no custom properties: run one for crash discovery,
+explore the state layer with model-based tests (`test-properties`), and keep device tours
+scripted. Exploration needs a running UI; for model-based tests of code without a UI use
+`test-properties`.
 
 ## Process
 
@@ -37,7 +40,13 @@ the state layer with model-based tests (`test-properties`) and keep device tours
    rejections, console errors, failed requests, broken values on screen (`NaN`, `undefined`,
    `[object Object]`, `Invalid Date`), typed markup that executes, Escape that cannot close a
    dialog, busy indicators that never clear. A violation on a healthy app means the app logs
-   errors on purpose or the harness is wrong: fix that first.
+   errors on purpose or the harness is wrong: fix that first. Each driver ships a different set:
+
+   | Driver | Generic properties included |
+   | --- | --- |
+   | Bombadil | Defaults `noUncaughtExceptions`, `noUnhandledPromiseRejections`, `noConsoleErrors`, `noHttpErrorCodes`; the page kit adds `noBrokenValues`, `injectedTextStaysInert`, `escapeClosesDialogs`, `focusStaysInModal`, `busyIndicatorsSettle` and layout checks |
+   | fast-check kit | `noUncaughtErrors`, `noConsoleErrors`, `noFailedRequests`, `noBrokenValues`, `injectedTextStaysInert`, `escapeClosesDialogs`, `busyIndicatorsSettle` |
+   | Hypothesis | None bundled; the demo harness writes uncaught errors, broken values, inert injected text, Escape and busy indicators as invariants |
 3. **Add domain properties.** Each is a rule with an extractor that reads only what it needs and
    returns "not judgeable" while the screen loads. Pick the shape:
 

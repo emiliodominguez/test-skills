@@ -21,6 +21,7 @@ on dedicated or scheduled runs. Thresholds come from measured baselines or SLOs.
    | --- | --- | --- | --- |
    | Quadratic loop, lookup that became linear | Operations per input item; time ratio at n and 8n | Per-item budget; ratio threshold | Every change |
    | N+1 queries, chatty client | Queries or requests per operation | Constant budget at two sizes | Every change |
+   | A query got slow with no more queries | Query plan on the production engine | `EXPLAIN` assertion (`test-integration`, databases reference) | Every change touching the query or its indexes |
    | Allocation growth on a hot path | Allocations per call (`testing.AllocsPerRun`, memory diagnosers) | Exact or ratcheted count | Every change |
    | Hot function got slower | Benchmark against a baseline from the same machine | Effect size plus significance | Dedicated runner, per merge or nightly |
    | Endpoint latency under load | p95, p99, error rate at a target arrival rate | SLO thresholds | Scheduled, before release |
@@ -45,7 +46,9 @@ on dedicated or scheduled runs. Thresholds come from measured baselines or SLOs.
    Vitest bench or tinybench, pytest-benchmark, Go `testing.B` with benchstat, criterion,
    JMH, BenchmarkDotNet. Run base and head in the same job on the same machine, interleaved.
    Take enough samples for a confidence interval. Flag a regression only when the change exceeds
-   a minimum effect (5-10% typical) and is statistically significant. On shared runners, count
+   a minimum effect (5-10% typical) and is statistically significant. Gate a stored-baseline
+   comparison on a robust statistic (p50 ratio) with a limit set from 20 runs of unchanged code;
+   a mean with a 10% tolerance flags noise and only warns. On shared runners, count
    instructions (Cachegrind-based harnesses) instead of time. Read
    [references/benchmarks.md](references/benchmarks.md) for setup and statistics per language.
 5. **Load tests answer SLO questions, on a schedule.**
@@ -66,7 +69,8 @@ on dedicated or scheduled runs. Thresholds come from measured baselines or SLOs.
    - Lab: Lighthouse CI asserts LCP, CLS and TBT on the median of at least 3-5 runs with a
      fixed device and throttling profile.
    - Field (RUM) judges p75 against the Core Web Vitals thresholds (LCP 2.5 s, INP 200 ms,
-     CLS 0.1). INP exists only in the field; TBT is its lab proxy.
+     CLS 0.1). Lab INP exists only in a Lighthouse user-flow timespan with scripted
+     interactions; for a navigation run, TBT is the proxy. Field p75 still decides.
    - Budget compressed bundle bytes per entry point.
    - Record long tasks over 50 ms during end-to-end flows.
    - Detect leaks by repeating a navigation cycle, collecting garbage, and asserting the
@@ -79,6 +83,10 @@ on dedicated or scheduled runs. Thresholds come from measured baselines or SLOs.
    - Timings: about twice the observed maximum, or the SLO.
    - Counts: the current value, ratcheted down when it improves. Raising one needs a reason in
      the change.
+   - `test-guard` flags a raised k6 quoted threshold (`"p(95)<200"`) or Lighthouse
+     `maxNumericValue` (`raised-tolerance`) and a lowered Lighthouse `minScore`
+     (`lowered-threshold`). It does not see custom constants such as a ratio threshold, a query
+     budget or a bench limit: review those by hand in any change that raises them.
    - Store the baseline with the commit and runner it came from. A guessed threshold is either
      flaky or blind.
 8. **Control noise where timing is unavoidable.** Use dedicated or pinned runners, a fixed CPU
@@ -104,21 +112,25 @@ separately. Functional tests pass on both regressions.
 - A budget of 2 queries fails the loader (4 and 31 queries for 3 and 30 orders) and passes the
   fix.
 - The ratio check uses `examples/performance/scaling.mjs`: n = 200, 8n, the fastest of 15
-  interleaved samples of at least 0.2 ms, threshold 24. Quiet, it reads 63-67 on the regression
-  and 8.4-10.1 on the fix. The file runs in about 1 s.
-- Repeated with `test-flaky`'s repeat script, the file failed 0 of 20 runs alone, 0 of 40 with 4 parallel
-  copies and 0 of 30 with 8 parallel copies on a 4-core machine.
-- `examples/performance/measure.mjs` ran as six concurrent copies, 120 rounds per variant. The
-  fastest-sample ratio misclassified 0 of 120 for each variant: the fix peaked at 12.4 and the
-  regression never fell below 63. A ratio of medians misclassified the fix in 40 of 120.
-- An earlier setting, the fastest of 7 samples of 0.5 ms, misclassified 1 of 60 contended rounds.
-  Short samples, and more of them, removed that.
-- Median time per call varied up to 2.5x inside one contended process: 0.013-0.033 ms for the fix.
-  An absolute budget would have to sit between that and the regression's 0.14 ms, on this machine
-  only; the ratio needs no per-machine number.
-- The Vitest bench snippet in [references/benchmarks.md](references/benchmarks.md), run with
-  unchanged code against its own stored baseline, reported a regression in 8 of 20 runs (mean up
-  to 28% slower, fastest sample within 2%).
+  interleaved samples of at least 0.2 ms, threshold 24. The test asserts only that the regression
+  reads above 24 and the fix below it. Observed, not asserted: quiet, it read 63-67 on the
+  regression and 8.4-10.1 on the fix, and the file ran in about 1 s.
+- Observed, not asserted (repetition counts and `measure.mjs` output, on a 4-core machine):
+  - With `test-flaky`'s repeat script, the file failed 0 of 20 runs alone, 0 of 40 with 4
+    parallel copies and 0 of 30 with 8 parallel copies.
+  - `examples/performance/measure.mjs` ran as six concurrent copies, 120 rounds per variant. The
+    fastest-sample ratio misclassified 0 of 120 for each variant: the fix peaked at 12.4 and the
+    regression never fell below 63. A ratio of medians misclassified the fix in 40 of 120.
+  - An earlier setting, the fastest of 7 samples of 0.5 ms, misclassified 1 of 60 contended
+    rounds. Short samples, and more of them, removed that.
+  - Median time per call varied up to 2.5x inside one contended process: 0.013-0.033 ms for the
+    fix. An absolute budget would have to sit between that and the regression's 0.14 ms, on this
+    machine only; the ratio needs no per-machine number.
+- `examples/performance/dedupe.bench.ts` (run with `vitest bench`, outside the default suite)
+  gates on a p50 ratio of at most 1.25 against a stored baseline and fails the seeded quadratic
+  dedupe (p50 ratio about 67). Observed, not asserted: with unchanged code, the p50 ratio stayed
+  at or under 1.08 in 20 runs, while the mean was more than 10% slower in 8 of them; an earlier
+  mean-based gate (`delta: 0.1`) reported a regression in 8 of 20 runs.
 
 Cross-machine variance, the load tools, Lighthouse CI and heap-snapshot procedures were not run
 here.
@@ -133,7 +145,8 @@ here.
 - Comparing against a baseline from another machine, another runner type or last month.
 - Thresholds copied from a blog post or set from one run.
 - Retrying a performance check until it passes, or widening the threshold after each failure.
-- One Lighthouse run per change, or judging INP from a lab run.
+- One Lighthouse run per change, or judging INP from a lab navigation run (it has no
+  interactions; TBT is its proxy).
 - Load generator on the same host as the system, or load against third-party services and
   production without agreement.
 - Benchmarking debug builds, or with coverage instrumentation or a profiler attached.

@@ -5,7 +5,7 @@
 // - `CouponForm` with `fixed`: a real form with a submit button.
 // - `CouponFormRefactored`: the fixed behavior after a harmless refactor (new class names, the label
 //   wraps the field, a shared button that does not forward test ids).
-import { createElement as h, useState, type FormEvent, type ReactElement } from "react";
+import { createElement as h, useId, useState, type FormEvent, type ReactElement } from "react";
 
 /** Props shared by every coupon form variant. */
 export interface CouponFormProps {
@@ -76,11 +76,13 @@ function renderFeedback(feedback: Feedback, className: string): ReactElement | n
  */
 export function CouponForm(props: CouponFormProps): ReactElement {
 	const coupon = useCoupon(props.onApply);
+	// A generated id keeps the label association unique when the form renders more than once.
+	const fieldId = useId();
 	const field = [
-		h("label", { key: "label", htmlFor: "coupon-code" }, "Coupon code"),
+		h("label", { key: "label", htmlFor: fieldId }, "Coupon code"),
 		h("input", {
 			key: "input",
-			id: "coupon-code",
+			id: fieldId,
 			className: "coupon-form__input",
 			value: coupon.code,
 			onChange: function change(event: { target: { value: string } }) {

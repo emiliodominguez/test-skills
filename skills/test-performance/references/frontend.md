@@ -10,12 +10,17 @@ documentation.
 | Metric | Good, field p75 | In the lab | Lab proxy |
 | --- | --- | --- | --- |
 | Largest Contentful Paint (LCP) | 2.5 s or less | Yes | LCP |
-| Interaction to Next Paint (INP) | 200 ms or less | No (needs real interactions) | Total Blocking Time (TBT), scripted-interaction timing |
+| Interaction to Next Paint (INP) | 200 ms or less | Only in a Lighthouse user-flow timespan with scripted interactions | Total Blocking Time (TBT) for a navigation without interactions |
 | Cumulative Layout Shift (CLS) | 0.1 or less | Load-time shifts only | CLS during load and scripted flows |
 
 Field data (Chrome UX Report, a RUM library reporting `web-vitals`) is judged at the 75th
 percentile per page type and device class. INP replaced First Input Delay as a Core Web Vital in
 2024.
+
+A navigation run has no interactions, so it reports TBT and no INP. For lab INP, run a Lighthouse
+user flow (`startTimespan`, scripted clicks and typing through the browser driver, `endTimespan`):
+the timespan report includes INP for the interactions the script performed. It measures those
+interactions on the lab device only; field p75 still decides.
 
 ## Lighthouse CI
 
@@ -29,13 +34,12 @@ percentile per page type and device class. INP replaced First Input Delay as a C
 			"settings": { "preset": "desktop" }
 		},
 		"assert": {
-			"aggregationMethod": "median-run",
 			"assertions": {
-				"largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-				"cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
-				"total-blocking-time": ["error", { "maxNumericValue": 200 }],
-				"resource-summary:script:size": ["error", { "maxNumericValue": 250000 }],
-				"categories:performance": ["warn", { "minScore": 0.9 }]
+				"largest-contentful-paint": ["error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" }],
+				"cumulative-layout-shift": ["error", { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }],
+				"total-blocking-time": ["error", { "maxNumericValue": 200, "aggregationMethod": "median-run" }],
+				"resource-summary:script:size": ["error", { "maxNumericValue": 250000, "aggregationMethod": "median-run" }],
+				"categories:performance": ["warn", { "minScore": 0.9, "aggregationMethod": "median-run" }]
 			}
 		},
 		"upload": { "target": "filesystem", "outputDir": "out/lhci" }
@@ -47,6 +51,9 @@ percentile per page type and device class. INP replaced First Input Delay as a C
   dev server.
 - At least 3, preferably 5 runs per URL, asserted on the median run; a single run varies by
   hundreds of milliseconds on shared runners.
+- `aggregationMethod` is read only from each assertion's options; a key beside `assertions` is
+  ignored. Without it an assertion uses `optimistic` (the best of the runs), which passes when any
+  one run passes. Set `"median-run"` on every assertion, as above.
 - Fix the device profile, network and CPU throttling in the config so runs compare. Mobile
   emulation applies CPU throttling relative to the runner's speed, so a faster runner shifts
   scores; keep the runner type fixed and record it.

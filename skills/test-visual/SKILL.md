@@ -1,7 +1,7 @@
 ---
 name: test-visual
 description: "Visual regression tests: screenshot baselines, determinism, thresholds, reviewed updates. Use when adding screenshot tests, or a pixel diff or visual regression flakes. Hands off to `test-flaky` or `test-guard`."
-compatibility: "Verified with @playwright/test 1.64.0 driving Chromium 141 in this repository's examples; the practices apply to Storybook-based and hosted tools."
+compatibility: "Verified with @playwright/test 1.64.0 driving a non-bundled Chromium 141 in this repository's examples (Playwright 1.64 bundles Chromium 156); the practices apply to Storybook-based and hosted tools."
 metadata:
   stage: author
 ---
@@ -42,19 +42,24 @@ a reviewed image diff.
    container image.
 5. **Prove determinism.** Run the unchanged build against its baselines at least five times
    (the runner's repeat option). Every run passes, or the nondeterminism is found and removed with
-   `test-flaky`. Never answer flakiness with a larger allowance.
+   `test-flaky`. Never answer flakiness with a larger allowance. Set `retries: 0` on the visual
+   project: a retry that happens to match turns a flaky screenshot green and hides the
+   nondeterminism.
 6. **Set thresholds from the smallest bug you need to catch.**
    - Per-pixel `threshold` decides when one pixel counts as different (Playwright default 0.2 on
      a 0 to 1 color distance). Leave it unless antialiasing differs inside the pinned container.
    - The pixel allowance decides how many differing pixels pass. In a pinned container start at
      zero. If repeats show measured noise, allow an absolute `maxDiffPixels` just above it and
      well below the diff of a real bug: a 6px button shift on a 320px card differed by 625
-     pixels here.
+     pixels here (observed with Chromium 141, not asserted).
    - Avoid `maxDiffPixelRatio` on large shots: it scales with area. 0.01 of a 1280x720 page is
      9,216 pixels, enough to lose an icon or a line of text; 0.05 accepted the 6px shift here.
    - Zero tolerance across different environments flakes on every font or GPU change; a loose
      allowance anywhere hides real regressions. Fix the environment, not the number.
    - With both `maxDiffPixels` and `maxDiffPixelRatio` set, Playwright 1.64 applies the stricter.
+   - `test-guard` flags a raised `maxDiffPixels` or `maxDiffPixelRatio` as `raised-tolerance`.
+     It does not see a raised per-pixel `threshold` or an allowance kept in a custom constant:
+     review those by hand.
 7. **Record baselines once, on the reference environment.** Generate them in the container (or
    the hosted service), commit them in the same change as the code that produced them, and keep
    them next to the tests through the runner's path template. Drop the platform from the path
@@ -94,20 +99,25 @@ not "wrong". Assert these as rules instead:
 
 ## Measured in this repository
 
-`examples/visual/verify.mjs` runs a Playwright Test project (1.64.0, Chromium 141, 800x400
-viewport, scale 1) against `examples/visual/page.html`, recording baselines from the correct page
-into a temporary directory first:
+`examples/visual/verify.mjs` runs a Playwright Test project (1.64.0, 800x400 viewport, scale 1)
+against `examples/visual/page.html`, recording baselines from the correct page into a temporary
+directory first. The verified pairing is Playwright 1.64 with a non-bundled Chromium 141
+(`CHROME=/opt/pw-browsers/chromium`); Playwright 1.64 bundles Chromium 156, and pixel counts may
+differ with it. The script asserts:
 
-- A 6px horizontal shift of the card's button fails the card's element screenshot with 625
-  differing pixels (ratio 0.02) at the default per-pixel threshold and no allowance.
+- A 6px horizontal shift of the card's button fails the card's element screenshot at the default
+  per-pixel threshold and no allowance.
 - The same bug passes with `maxDiffPixelRatio: 0.05`.
 - With a live seconds clock and a promotion picked at random left unmasked, the unchanged page
-  failed 5 of 5 repeats in each of four runs (between 23 and 698 differing pixels per
-  repeat across the runs observed).
-- With an infinite CSS animation allowed to run, Playwright never got two consecutive matching
-  screenshots, so no baseline could be recorded.
-- With a fixed clock, the promotion masked and animations disabled, the page passed 5 of 5
-  repeats, and so did the card.
+  fails at least 1 of 5 repeats.
+- With an infinite CSS animation allowed to run, Playwright never gets two consecutive matching
+  screenshots, so no baseline can be recorded.
+- With a fixed clock, the promotion masked and animations disabled, the page passes 5 of 5
+  repeats, and so does the card.
+
+Observed, not asserted (printed by the script): the shift differs by 625 pixels (ratio 0.02);
+the uncontrolled page failed 5 of 5 repeats in each of five runs, with 23 to 728 differing
+pixels per repeat.
 
 Cross-OS and cross-browser rendering differences were not measured here.
 
@@ -118,6 +128,7 @@ Cross-OS and cross-browser rendering differences were not measured here.
 - Baselines recorded on a laptop and compared in CI, or after a browser upgrade without a
   dedicated, reviewed re-record.
 - Raising `maxDiffPixelRatio` or `threshold` until a flaky screenshot passes.
+- Retries on the visual project: the second capture that happens to match hides the flake.
 - Full-page screenshots of everything: every change touches every baseline and reviews become
   rubber stamps.
 - Masking whole panels, which hides the overlaps and clipping inside them.

@@ -119,7 +119,11 @@ Then, each on a fresh page:
   cannot reach it (manual pass; `aria-modal` alone does not block it in every pairing).
 
 A native `<dialog>` opened with `showModal()` makes the rest of the page inert and closes on
-Escape; test it the same way (not measured here).
+Escape, but it does not wrap Tab: past its last control, focus moves to the browser's own UI and
+`document.activeElement` reads `body`. That is the platform's behavior, not a trap failure, so the
+`focusLocation() === "inside"` loop above fails a correct native dialog. For native dialogs,
+assert that focus is never on a page element outside the dialog: inside the dialog or `body` are
+both allowed, anything else is a leak. Not measured here.
 
 ## Skip link and landmarks (2.4.1)
 
@@ -136,15 +140,17 @@ the arrows and assert `aria-selected` or `aria-checked` and focus move together.
 ## Focus not obscured (2.4.11, new in 2.2)
 
 After every Tab, the focused element's bounding box must not be entirely covered by a sticky
-header, footer or cookie banner. Compare `element.getBoundingClientRect()` with each fixed or
+header, footer or cookie banner. Partly covered still passes 2.4.11; full visibility is 2.4.12
+(AAA). Compare `element.getBoundingClientRect()` with each fixed or
 sticky element's rectangle. Not measured here.
 
 ## Focus after removal
 
 Deleting a row, closing a toast or finishing a step must leave focus on something sensible (the
-next row, the list heading, the new step's heading), never on `body`. Measured as a variant: a
+next row, the list heading, the new step's heading), never on `body`. Observed, not asserted: a
 closed dialog that does not restore focus left it on `body` in one run and on the hidden Cancel
-button in another, so assert where focus must be, not where it must not be.
+button in another (the check asserts only that focus is on the opener), so assert where focus must
+be, not where it must not be.
 
 ## Names, descriptions and announcements
 
@@ -209,7 +215,8 @@ function horizontalOverflow() {
 const page = await browser.newPage({ viewport: { width: 320, height: 640 } });
 ```
 
-Overflow must be at most 1 pixel (measured: a fixed `40rem` card overflows by 336 px). 320 CSS
+Overflow must be at most 1 pixel (measured: a fixed `40rem` card fails it; the 336 px overflow
+printed is observed, not asserted). 320 CSS
 pixels is 1280 at 400% zoom. Content that needs two dimensions (data tables, maps, diagrams) is
 exempt; scope the check around it. Repeat for each page state that changes layout (open menu,
 dialog).

@@ -489,7 +489,7 @@ describe("faults at the payment boundary, injected with msw", function faultSuit
 
 	test("an unhandled request fails instead of reaching the network", async function unhandled() {
 		// msw 3 names this option `onUnhandledFrame`; the msw 2 name `onUnhandledRequest` is ignored at
-		// runtime, so the request warns and goes to the real network instead.
+		// runtime, so the request goes to the network instead (asserted in the last suite).
 		const error = await fetch(`${PROVIDER}/refunds`, { method: "POST" }).catch(function caught(reason: unknown) {
 			return reason;
 		});
@@ -564,5 +564,55 @@ describe("faults at the payment boundary, injected with msw", function faultSuit
 
 		await expect(client(FIXED).charge(ORDER)).rejects.toMatchObject({ reason: "unavailable" });
 		expect(down.state.attempts).toBe(3);
+	});
+});
+
+describe("msw 3 ignores the msw 2 option name", function renamedOptionSuite() {
+	const server = setupServer();
+
+	beforeAll(function listen() {
+		// The msw 2 spelling. TypeScript rejects it, hence the cast; plain JavaScript passes it through.
+		server.listen({ onUnhandledRequest: "error" } as never);
+	});
+
+	afterAll(function close() {
+		server.close();
+	});
+
+	/**
+	 * A local port with nothing listening on it: bind an ephemeral port, then release it.
+	 *
+	 * @returns The closed port.
+	 */
+	async function closedPort(): Promise<number> {
+		const probe = createServer();
+
+		probe.listen(0, "127.0.0.1");
+		await once(probe, "listening");
+
+		const { port } = probe.address() as AddressInfo;
+
+		probe.close();
+		await once(probe, "close");
+
+		return port;
+	}
+
+	test('with `onUnhandledRequest: "error"` an unhandled request still goes to the network', async function oldOptionIgnored() {
+		const warn = vi.spyOn(console, "warn").mockImplementation(function silence() {});
+
+		try {
+			const port = await closedPort();
+			const error = await fetch(`http://127.0.0.1:${port}/charges`).catch(function caught(reason: unknown) {
+				return reason;
+			});
+			const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+
+			// Blocked by msw, the cause would name the "error" strategy; refused by the OS, the request reached the network.
+			expect(cause?.code).toBe("ECONNREFUSED");
+			expect(String(cause?.message)).not.toContain('"error" strategy');
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

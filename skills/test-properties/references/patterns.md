@@ -31,8 +31,8 @@ counts are conserved; a result stays within its declared bounds.
 ## Round trip
 
 Two functions that undo each other: encode/decode, serialize/parse, format/parse, compress,
-encrypt, save/load. Generate the structured side, not the text side, so every generated value is
-valid.
+encrypt, your own serializer and its parser. Generate the structured side, not the text side, so
+every generated value is valid.
 
 ```ts
 fc.assert(
@@ -44,6 +44,9 @@ fc.assert(
 
 When the trip is lossy by design (a date formatted to minutes), compare after normalizing both
 sides the same way, and state the loss in the property's name.
+
+A lenient decoder (strips separators, trims, ignores case) hides encoder bugs; pair the round trip
+with an invariant on the encoded form's shape or a few golden examples.
 
 ## Oracle and differential
 

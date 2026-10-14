@@ -64,9 +64,12 @@ cases improve and the aggregate score does not move.
    Deterministic assertions first: they are free, exact and never drift. A judge is a model
    under test too: write a rubric of binary criteria, pin the judge model and prompt, and
    calibrate it against 50-100 human-labeled cases before trusting it (agreement and Cohen's
-   kappa per criterion; under about 0.6, fix the rubric). Recalibrate when the judge changes.
+   kappa per criterion, each kappa with its confidence interval and the class balance, and
+   agreement per class when passes far outnumber failures; under about 0.6, fix the rubric).
+   Recalibrate when the judge changes.
 6. **Gate on per-case flips against a baseline.** Store the baseline run per case (dataset
-   version, prompt version, model id, settings, outputs, assertion results). On every prompt,
+   version, prompt version, model id, settings, outputs, assertion results). Pin a dated model
+   snapshot id, never a floating alias: an alias that moves between runs makes flips meaningless. On every prompt,
    model, retrieval or parameter change, run the candidate on the same dataset version and
    report every `PASS -> FAIL` and `FAIL -> PASS` case with the failing assertion. Fail the gate
    on any unreviewed `PASS -> FAIL`, and on any failure in a critical slice (safety, money,
@@ -139,8 +142,10 @@ The offline harness (`examples/llm/eval.mjs`, 20 golden cases, deterministic stu
 simulated prompt change: both runs scored 16/20 (80%, 95% CI 58-92%), exact McNemar p=1, yet
 two cases flipped `PASS -> FAIL` and two `FAIL -> PASS`, and the per-case gate failed. The same
 prompt against itself at temperature 0 had no flips; at temperature 0.6, one sample per case
-flipped 1-4 cases on each of 8 seeds, and a majority over 25 samples had no flips on any of
-them; with the same settings, the simulated prompt change still showed both real regressions.
+flipped 1-4 cases on each of 8 seeds (the test asserts that range), and a majority over 25
+samples had no flips on any of them; with the same settings, the simulated prompt change still
+showed both real regressions. The ticket fence escapes `<` and `>` in customer text, and a test
+asserts that a body containing `</ticket>` stays inside it.
 
 ## Anti-patterns
 

@@ -109,7 +109,8 @@ export const keyboard = weighted([
 	[3, { PressKey: { code: 32 } }],
 	[2, { PressKey: { code: 27 } }],
 	[3, { PressKey: { code: 40 } }],
-]);```
+]);
+```
 
 - **Double clicks** on submit buttons, dialog footers and rows: a double submit must not happen.
 - **Inner scrolling** on scrollable containers, not only the window.

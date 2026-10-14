@@ -4,11 +4,10 @@
 //   @unstable the same page with its clock and random promotion left alone (animations still disabled)
 //   @animated the controlled page with its CSS animation allowed to run
 //   @loose    the component compared with a threshold loose enough to accept the seeded bug
-import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 
 const variant = process.env.VISUAL_VARIANT === "buggy" ? "buggy" : "correct";
-const pageUrl = `${pathToFileURL(new URL("./page.html", import.meta.url).pathname).href}?variant=${variant}`;
+const pageUrl = `${new URL("./page.html", import.meta.url).href}?variant=${variant}`;
 
 /**
  * Open the demo page and wait until its web fonts, if any, are ready.

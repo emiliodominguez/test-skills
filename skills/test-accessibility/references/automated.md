@@ -26,8 +26,10 @@ run a second on the schedule if you want a wider net.
   `identical-links-same-purpose`, `meta-refresh-no-exceptions`), experimental and deprecated
   rules, and runs most `best-practice` rules. Pass `runOnly` tags so the gate means "WCAG A and
   AA".
-- With the tag, two 16 px buttons in a flex row two pixels apart are `target-size` violations.
-  WCAG exempts targets inside a sentence, so small inline buttons may come back `inapplicable`.
+- With the tag, two 16 px buttons in a flex row two pixels apart are `target-size` violations,
+  one node each. WCAG exempts targets inside a sentence, so small inline buttons may come back
+  `inapplicable`. Under jsdom the same buttons land in `passes`: a jsdom result for this rule
+  means nothing.
 - Under jsdom, `color-contrast` lands in `incomplete`, never in `violations`: there is no layout
   or canvas. Contrast needs a real browser.
 - Hidden content is not scanned: a closed dialog, a collapsed menu or an error that is not shown
@@ -92,6 +94,10 @@ with a relaxed policy or use the driver's CSP bypass option.
 
 ## @axe-core/playwright (from the package documentation)
 
+`WCAG_TAGS` comes from the raw axe-core block above and `fingerprint` from the baseline block
+below. `analyze()` returns raw axe results, one entry per rule with a `nodes` list, so flatten
+them to `{ rule, target }` before fingerprinting:
+
 ```ts
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -101,8 +107,13 @@ test("address dialog has no WCAG A or AA violations", async function addressDial
 	await page.getByRole("button", { name: "Change address" }).click();
 
 	const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).include('[role="dialog"]').analyze();
+	const flat = results.violations.flatMap(function perNode(violation) {
+		return violation.nodes.map(function toEntry(node) {
+			return { rule: violation.id, target: node.target.join(" ") };
+		});
+	});
 
-	expect(results.violations.map(fingerprint)).toEqual([]);
+	expect(flat.map(fingerprint)).toEqual([]);
 });
 ```
 

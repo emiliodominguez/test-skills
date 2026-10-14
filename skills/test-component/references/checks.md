@@ -8,7 +8,7 @@ error, invalid form), not only after the first render.
 ```ts
 async function axeViolations(container: Element): Promise<string[]> {
 	const results = await axe.run(container, {
-		runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] },
+		runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
 		rules: { "color-contrast": { enabled: false } },
 	});
 
@@ -22,9 +22,14 @@ expect(await axeViolations(container)).toEqual([]);
 
 - Assert the list of rule ids equals `[]`, so a failure names every rule at once. `jest-axe` and
   `vitest-axe` wrap the same call with a matcher.
-- **Color contrast needs a browser.** Measured with axe-core 4.14 in jsdom 30: light gray text
-  on white is not a violation; the rule lands in `incomplete` because axe cannot get a canvas or
-  layout. Disable the rule in jsdom runs and check contrast in a browser runner.
+- Use the same tag set as `test-accessibility` (WCAG 2.0, 2.1 and 2.2 A and AA), so a rule
+  added in a later WCAG version is not silently skipped.
+- **Color contrast and target size need a browser.** Measured with axe-core 4.14 in jsdom 30:
+  light gray text on white is not a violation; the rule lands in `incomplete` because axe cannot
+  get a canvas or layout. `target-size` (WCAG 2.2 AA) depends on rendered boxes, which jsdom
+  does not compute: measured, two 16 px buttons two pixels apart land in `passes` under jsdom,
+  while Chromium reports them as violations. A jsdom pass on either rule means nothing. Disable
+  contrast in jsdom runs and check both rules in a browser runner.
 - **axe does not see behavior.** Measured in this repository: a mouse-only `span` with a click
   handler passed axe with zero violations; the role query and the keyboard test caught it. Keep
   role queries and a keyboard path in the tests; axe complements them.
@@ -45,9 +50,12 @@ For each interactive component, one test drives it without a pointer:
   Escape closes dialogs and popovers; arrow keys move within menus, tabs, listboxes and grids.
 - Opening a dialog moves focus inside it; closing it returns focus to the trigger.
 
-`fireEvent.keyDown` dispatches one event and runs no default action: measured in this
-repository, Enter in a field submitted nothing even on the working form, while user-event's
-`{Enter}` submitted it.
+`fireEvent.keyDown` dispatches one keydown and nothing follows it: measured in this repository,
+Enter in a field submitted nothing even on the working form, while user-event's `{Enter}`
+submitted it. (`fireEvent.click` does run the click's activation, submitting or toggling; it
+skips focus and the surrounding pointer events.) Tab to a button and press Enter or Space on
+it: Enter in a single-field form submits through implicit submission even when the button is a
+`div`.
 
 ## Snapshots
 

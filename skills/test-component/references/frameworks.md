@@ -14,6 +14,13 @@ the environment can simulate.
 | Playwright component testing | Yes | Real | Slower | Teams already on Playwright; components that need a real engine |
 | Storybook interaction tests | Yes | Real in the browser | Medium | Components already documented as stories; one play function per state |
 
+Install `jsdom` as an explicit dev dependency, so its version is pinned rather than whatever the
+runner's environment package resolves (a fresh setup in a field trial got jsdom 29); the evidence
+here used jsdom 30.1.2. Add `axe-core` for the accessibility checks in
+[checks.md](checks.md). In a CommonJS package (no `"type": "module"`), Vitest's config prints a
+Vite warning about loading an ESM config: set `"type": "module"` in `package.json` or name the
+file `vitest.config.mts`.
+
 Gaps measured in jsdom 30: no `matchMedia`, `IntersectionObserver`, `ResizeObserver` or
 `Element.scrollIntoView`; `HTMLDialogElement` exists but has no `showModal`;
 `getBoundingClientRect` returns zeros; canvas `getContext` is not implemented, which is also

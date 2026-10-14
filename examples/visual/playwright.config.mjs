@@ -2,6 +2,10 @@
 // VISUAL_OUT (verify.mjs points it at a fresh temporary directory), so no screenshots or
 // test-results folder land in the repository. Rendering is pinned: one browser binary, a fixed
 // viewport and device scale factor, light scheme, UTC and en-US.
+//
+// CHROME optionally names the Chromium executable to launch; without it Playwright uses its own
+// installed browser. The verified runs used CHROME=/opt/pw-browsers/chromium (Chromium 141); the
+// browser bundled with Playwright 1.64 is Chromium 156, whose pixel counts may differ.
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
@@ -29,6 +33,6 @@ export default defineConfig({
 		colorScheme: "light",
 		locale: "en-US",
 		timezoneId: "UTC",
-		launchOptions: { executablePath: process.env.CHROME || "/opt/pw-browsers/chromium" },
+		launchOptions: { executablePath: process.env.CHROME || undefined },
 	},
 });

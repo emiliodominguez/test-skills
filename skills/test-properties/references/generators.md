@@ -6,8 +6,9 @@ the edge cases or spend themselves on uninteresting values.
 ## Build from the domain
 
 - **Compose, do not filter.** `fc.integer({ min: 1, max: 50 })` instead of filtering
-  `fc.integer()` down to that range; in Hypothesis, `st.integers(1, 50)` instead of `assume`. A filter that rejects more than about half the values slows the search and can make
-  Hypothesis raise a health-check error.
+  `fc.integer()` down to that range; in Hypothesis, `st.integers(1, 50)` instead of `assume`. A
+  filter that rejects more than about half the values slows the search and can make Hypothesis
+  raise a health-check error.
 - **Generate valid structures, then render them.** Generate an order object and serialize it,
   rather than generating JSON text and hoping it parses.
 - **Derive dependent values.** Generate a list, then an index into it:
@@ -36,13 +37,35 @@ the edge cases or spend themselves on uninteresting values.
 
 Libraries bias toward small and boundary values already; thresholds specific to the code
 (tiers, limits, page sizes) need explicit `fc.constantFrom` or `st.sampled_from` mixed in.
+List `constantFrom` values simplest-first: values from that branch shrink only toward earlier
+entries, and not into the other branches of a `oneof`. With fast-check 4.10, a property failing
+from 5,000 up on `fc.oneof(fc.integer({ min: 0, max: 100_000 }), fc.constantFrom(50_000, 10_000))`
+reported `50000` for 25 of 40 seeds instead of `5000`.
+
+## Check the distribution
+
+Classify generated values before trusting a property: `fc.statistics(arb, classify)` in
+fast-check, `event()` with `--hypothesis-show-statistics` in Hypothesis, `Statistics.collect` in
+jqwik. A threshold case that never appears in the output is untested, however many runs pass.
+
+```ts
+fc.statistics(lines, function tier(values) {
+	const subtotal = values.reduce(function add(acc, value) {
+		return acc + value;
+	}, 0);
+
+	return subtotal >= 50_000 ? "top tier" : subtotal >= 10_000 ? "middle tier" : "no discount";
+});
+```
 
 ## Size and speed
 
 Keep generated structures small (a few elements, short strings): most bugs have small
 counterexamples, and shrinking is faster from small values. Raise sizes in a scheduled job, not
-on every change. Recursive data needs an explicit depth limit (`fc.letrec` with `depthSize`,
-Hypothesis `st.recursive` with `max_leaves`).
+on every change. Recursive data needs an explicit depth limit: in fast-check, put
+`fc.oneof({ depthSize: "small", maxDepth: 5 }, leaf, node)` on the recursive branch inside
+`fc.letrec` (list the leaf first: past `maxDepth` only the first arbitrary is used); in
+Hypothesis, `st.recursive` with `max_leaves`.
 
 ## Determinism
 

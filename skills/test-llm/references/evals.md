@@ -58,8 +58,16 @@ A case passes when all its assertions hold. Report the failing assertion's messa
 - **Calibration:** label 50-100 outputs by hand (include failures), run the judge, and compute
   agreement and Cohen's kappa per criterion. Under about 0.6, rewrite the criterion or replace
   it with a deterministic check. Keep the labeled set as the judge's own regression suite.
+- **Report kappa with its uncertainty:** give each kappa a confidence interval (bootstrap over
+  the labeled cases) and the class balance (share of human pass and fail labels). On 50-100
+  cases the interval is wide; a lower bound under 0.6 is not yet calibrated.
+- **Per-class agreement when classes are skewed:** with 90% passes, a judge that always says
+  pass has 90% agreement and a kappa near zero. Report agreement on the human-fail cases and on
+  the human-pass cases separately (the judge's recall of failures is what the gate depends on),
+  and over-sample failures in the labeled set.
 - **Pin and recalibrate:** the judge model, prompt and temperature are part of the baseline.
-  Changing any of them changes every score; recalibrate before comparing.
+  Changing any of them changes every score; recalibrate before comparing. Pin the judge by a
+  dated snapshot id, never a floating alias.
 - **Biases to control:** position (in pairwise, run both orders and count a win only when both
   agree), verbosity (longer answers win; add a length criterion or penalty), self-preference (a
   model rating its own family's outputs; use a different judge or check agreement on a mixed
@@ -70,7 +78,10 @@ A case passes when all its assertions hold. Report the failing assertion's messa
 ## Baseline and flip report
 
 Store per case: dataset version, prompt version or hash, model id, parameters, seed, samples,
-outputs, per-assertion results, tokens, cost, latency. Compare a candidate on the same dataset
+outputs, per-assertion results, tokens, cost, latency. The model id is a dated snapshot id as the
+provider names one, never a floating alias that points at "the latest": an alias can move
+between the baseline run and the candidate run, and the flips then measure the provider, not the
+change. Compare a candidate on the same dataset
 version:
 
 ```text

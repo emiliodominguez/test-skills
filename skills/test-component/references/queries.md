@@ -38,7 +38,9 @@ error output lists every role and name it found; read it.
 
 ## Names and scoping
 
-- The name is the accessible name: label, `aria-labelledby`, `aria-label`, then content.
+- The name is the accessible name, computed in this order: `aria-labelledby`, `aria-label`, the
+  native label (`label` for a field, `alt` for an image, `legend` for a fieldset, `caption` for
+  a table), content (for roles named from content, such as buttons and links), then `title`.
   `getByRole("button", { name: "Remove Coffee beans" })` proves the name a screen reader reads.
 - Scope repeated controls with `within(row)`: find the row by its text, then the button inside.
 - `screen` queries `document.body`, which includes portals (modals, popovers, toasts). Queries
@@ -66,7 +68,14 @@ error output lists every role and name it found; read it.
 | `table`, `tr`, `th`, `td` | `table`, `row`, `columnheader`, `cell` |
 | `dialog`, `role="dialog"` | `dialog` (give it a name with `aria-labelledby`) |
 | `form`, `section` | `form`, `region` only when they have an accessible name |
-| `nav`, `main`, `header`, `footer` | `navigation`, `main`, `banner`, `contentinfo` (the last two only at page level) |
+| `nav`, `main`, `header`, `footer` | `navigation`, `main`, `banner`, `contentinfo` (see below) |
+
+Browsers give `header` and `footer` the `banner` and `contentinfo` roles only at page level; inside
+`article`, `section`, `aside`, `nav` or `main` they have no landmark role. Testing Library 10.4
+does not apply that rule: checked with @testing-library/dom 10.4.2 in jsdom, a `header` inside an
+`article` or a named `section` matched `getByRole("banner")`, and a nested `footer` matched
+`contentinfo`. With nested headers on screen, `getByRole("banner")` finds several; scope with
+`within(article)` or query the page-level one through its parent.
 
 ## Copy and translations
 

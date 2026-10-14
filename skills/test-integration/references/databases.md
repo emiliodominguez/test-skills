@@ -13,7 +13,10 @@
 Nested transactions differ by engine. SQLite refuses a second `BEGIN` ("cannot start a
 transaction within a transaction", verified in this repository). PostgreSQL warns "there is
 already a transaction in progress" and continues, so the code's `COMMIT` commits the test's
-transaction and the rollback no longer isolates. Code that may run inside a caller's transaction
+transaction and the rollback no longer isolates. MySQL is worse: a `BEGIN` (or `START
+TRANSACTION`) inside an open transaction implicitly commits it, and so does any DDL statement
+(`CREATE`, `ALTER`, `DROP`, `TRUNCATE`), so code under test that does either silently commits
+the test's transaction. Code that may run inside a caller's transaction
 uses `SAVEPOINT`, `RELEASE` and `ROLLBACK TO`; ORMs expose this as nested transactions.
 
 With a per-worker database, give each worker its name from the runner's worker index, migrate a
@@ -73,8 +76,14 @@ safe to re-run (`IF NOT EXISTS`, `IF EXISTS`).
 ## Queries
 
 - Assert the result set and its order, with `ORDER BY` on a unique tiebreaker.
-- For each index added for a query, assert the plan uses it (`EXPLAIN`), so a later rewrite that
-  stops using it fails a test.
+- Query plans: for every index added for a query, assert the plan uses it (`EXPLAIN`; PostgreSQL
+  `EXPLAIN (FORMAT JSON)`, MySQL `EXPLAIN FORMAT=JSON`, SQLite `EXPLAIN QUERY PLAN`), so a later
+  rewrite that stops using it fails a test. Run it on the production engine and major version:
+  planners differ by engine and version, so a plan check on another engine proves nothing.
+  Seed enough rows that the planner prefers the index (a table of a few rows is scanned whatever
+  the indexes), and assert the index name or the absence of a sequential scan, not the whole plan
+  text. A query that got slow without issuing more queries is usually a plan regression; this is
+  where it is caught.
 - For concurrency (double booking, lost update, unique races), run the competing operations on
   separate connections with a barrier and assert one wins; transaction-per-test isolation cannot
   test this.

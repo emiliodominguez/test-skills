@@ -12,8 +12,8 @@ person would see. It proves the paths you know; exploration covers the rest.
 
 ## Pick the driver
 
-Use the one the repository has. Otherwise: Playwright for web and Electron (cross-browser,
-auto-waiting, traces), Cypress where the team already runs it, WebdriverIO or Selenium for
+Use the one the repository has. Otherwise: Playwright for web (cross-browser, auto-waiting,
+traces) and Electron (experimental), Cypress where the team already runs it, WebdriverIO or Selenium for
 browser grids and legacy stacks; for mobile, Maestro for flow files, Detox for React Native,
 Espresso and XCUITest for native suites, Appium across both. Read
 [references/drivers.md](references/drivers.md) for the trade-offs and the waiting model of each.
@@ -48,8 +48,23 @@ Espresso and XCUITest for native suites, Appium across both. Read
 - Build once, then run tours sequentially when they share output folders or ports. A runner
   prints pass or fail with duration per tour and exits non-zero on any failure.
 - Headless by default, with an environment switch for a visible window when debugging.
+- With retries off, capture evidence on the first failure: in Playwright, `trace:
+  'retain-on-failure'` and `screenshot: 'only-on-failure'`; in other drivers, a screenshot and
+  the console log from an after-each hook.
 - Component fixture pages (the real components served by the dev server in a bare page) are
   cheaper than a full tour for keyboard, focus and ARIA behavior of custom controls.
+
+## Post-deploy smoke
+
+A handful of tours run against the deployed environment right after each deploy:
+
+- Read-only paths, or a dedicated synthetic account whose writes clean up after themselves; never
+  write to real customer data.
+- The base URL comes from an environment switch, so the same tours run locally, on staging and on
+  production.
+- Fail on any 5xx response and on console errors, not only on a missing element.
+- A couple of minutes at most, and tied to an action: a failure triggers the rollback or pages
+  the owner.
 
 ## Flakiness
 

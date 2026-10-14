@@ -12,7 +12,7 @@ workflow generators, and let exploration find the paths nobody wrote.
 
    | Assertion in the script | Becomes |
    | --- | --- |
-   | "Total shows $12.50 after adding two mugs" | Invariant: the total equals the sum of displayed lines, in every state |
+   | "Total shows $25.80 after adding two mugs at $12.90" | Invariant: the total equals the sum of displayed lines, in every state |
    | "Error appears for an invalid email" | Guarantee: an invalid value in a field implies an error within N seconds, and no submit |
    | "Spinner disappears after save" | Bounded guarantee: every busy indicator clears within N seconds |
    | "Dialog closes on Cancel" | `next`: after Cancel or Escape, the dialog is gone |
@@ -29,8 +29,9 @@ workflow generators, and let exploration find the paths nobody wrote.
    state machine: offer the next step based on what the screen shows, with momentum while a flow
    is in progress. Sign-in becomes a gated action with demo credentials typed as escaped literals.
 5. **Reuse fixtures.** Seeded data, fake services, auth state and the dev server command from the
-   end-to-end setup become the Bombadil run's setup. Inject the page kit the same way the suite
-   injects test hooks.
+   end-to-end setup become the exploration run's setup: Bombadil runner flags, `explore()`
+   options, or the state machine's `__init__`. Inject the page kit (for Bombadil) the same way
+   the suite injects test hooks.
 6. **Verify the lift.** Run the spec on the current build: every lifted property must be silent
    and reached. Then reintroduce one bug the scripted test once caught (or revert its fix in a
    scratch branch) and confirm a property catches it without the script.
@@ -38,7 +39,7 @@ workflow generators, and let exploration find the paths nobody wrote.
 ## Example
 
 ```ts
-// Scripted: after adding two mugs, the total reads $25.80.
+// Scripted: after adding two mugs at $12.90, the total reads $25.80.
 // Lifted: in every state, the total equals the sum of the line amounts.
 export const cartTotalAddsUp = settles(function addsUp() {
 	const { lines, total } = cart.current;

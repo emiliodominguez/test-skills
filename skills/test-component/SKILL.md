@@ -1,7 +1,7 @@
 ---
 name: test-component
 description: "UI component tests with Testing Library, user-event and MSW. Use when testing a React, Vue or Svelte component, form, hook or modal, or fixing act warnings. Hands off to `test-e2e` or `test-findings`."
-compatibility: "Verified in this repository's examples with React 19.3, @testing-library/react 16.3, @testing-library/dom 10.4, @testing-library/user-event 14.6, MSW 3.0, axe-core 4.14, jsdom 30 and Vitest 5. The practices carry to Vue, Svelte, Angular, Solid, browser-mode runners, Playwright component testing and Storybook."
+compatibility: "Verified in this repository's examples with React 19.3, @testing-library/react 16.3, @testing-library/dom 10.4, @testing-library/user-event 14.6, MSW 3.0, axe-core 4.14, jsdom 30.1 (installed explicitly) and Vitest 5. The practices carry to Vue, Svelte, Angular, Solid, browser-mode runners, Playwright component testing and Storybook."
 metadata:
   stage: author
 ---
@@ -32,8 +32,11 @@ person and keeps passing when the markup is refactored.
    Storybook interaction tests) when the behavior needs layout, real focus, canvas or observers.
    Check the setup before writing tests: React Testing Library registers automatic cleanup and
    the act environment only through the runner's globals, and Vitest's default is no globals.
-   Without a setup file that calls `cleanup` and sets `IS_REACT_ACT_ENVIRONMENT`, trees leak
-   between tests and act warnings stay silent (measured below). Read
+   Without a setup file that sets `IS_REACT_ACT_ENVIRONMENT`, act warnings stay silent (measured
+   below); without one that calls `cleanup`, rendered trees stay in the document for the next
+   test. Install jsdom (and axe-core, for step 9) as explicit dev dependencies so their versions
+   are pinned. In a CommonJS package, Vitest's config prints a Vite ESM warning: set
+   `"type": "module"` or name the config `vitest.config.mts`. Read
    [references/frameworks.md](references/frameworks.md) for the environment table, jsdom's gaps
    and per-framework notes (React, Vue, Svelte, Angular, Solid, Storybook).
 3. **Render with real providers, fresh per test.** One `renderWithProviders` helper builds a new
@@ -49,27 +52,47 @@ person and keeps passing when the markup is refactored.
    scoping with `within`.
 5. **Act like a person.** user-event for every interaction; await every call. One keyboard path
    per interactive component: Tab reaches it, Enter or Space activates it, Escape dismisses it,
-   focus returns to the trigger. `fireEvent` only for events user-event cannot produce (scroll,
-   resize, media and custom events): it dispatches one event and runs no default action.
+   focus returns to the trigger. Tab to the button itself and press Enter or Space: Enter inside
+   a single-field form submits through implicit submission even when the button is a `div`, so
+   typing `{Enter}` in the field does not prove the button works. `fireEvent` only for events
+   user-event cannot produce (scroll, resize, media and custom events): it dispatches the one
+   event you name. A `fireEvent.click` still runs the click's activation (a submit button
+   submits, a checkbox toggles); what it skips is focus and the pointer and keyboard sequence
+   around it, so `fireEvent.keyDown` Enter submits nothing.
 6. **Wait on what appears.** `findBy` for elements, `waitFor` with one assertion for state
    changes, `waitForElementToBeRemoved` for spinners. No fixed sleeps. Assert absence only after
    the settled state is on screen. With fake timers, configure user-event's `advanceTimers` and
    let the clock advance. An act warning is a race the test lost: await the visible result, do
-   not wrap lines in `act` to silence it. Read [references/async.md](references/async.md) for
+   not wrap lines in `act` to silence it. The one exception is advancing fake timers by hand
+   (`vi.advanceTimersByTime`): Testing Library does not wrap that call, so wrap it in `act`.
+   Read [references/async.md](references/async.md) for
    fake timers, the act setup and failing on `console.error`.
 7. **Fake the network, not the unit.** Serve HTTP with MSW (or an injected fake client) and fail
-   on unhandled requests. Override handlers per test for empty, 4xx, 5xx, network error and
-   slow responses; record requests when the payload is the behavior and assert body and count.
+   on unhandled requests. That option rejects the request, but a component that catches its
+   fetch errors swallows the rejection and the test can still pass; MSW also logs the request to
+   `console.error`, so the `console.error` guard (step 6) is what fails the suite. Keep both.
+   Override handlers per test for empty, 4xx, 5xx, network error and slow responses; record
+   requests when the payload is the behavior and assert body and count. When asserting nothing
+   was sent, assert the recorded requests before querying the form: if a success screen
+   replaced it, the failure otherwise reads "Unable to find textbox".
    Never mock the component's own hooks, modules or children. Read
    [references/network.md](references/network.md) for setup, the MSW 3 option rename and
    request assertions.
-8. **Cover every state the screen has.** Loading, empty, error (with a retry if there is one),
-   success, partial data, no permission. For forms: each validation rule shows its message tied
-   to the field (`aria-invalid`, `aria-describedby` or `role="alert"`), keyboard submit works,
-   the submit is disabled or ignored while pending (no double submit), server errors map to the
-   right field, and success clears or redirects.
+8. **Cover every state the screen has, and the transitions between them.** Loading, empty,
+   error (with a retry if there is one), success, partial data, no permission. Transitions:
+   success then a refetch that fails (the old data must go), a filter change while a request is
+   pending (the stale response must not win). For forms: each validation rule shows its message
+   tied to the field (`aria-invalid`, `aria-describedby` or `role="alert"`), keyboard submit
+   works, the submit is disabled or ignored while pending (no double submit), server errors map
+   to the right field, and success clears or redirects. Drive each validation rule through Enter
+   as well as the button: validation tied to blur passes click-only tests because the click
+   blurs the field.
 9. **Check accessibility in the same test.** Run axe-core on the container in each state that
-   matters and assert the violation ids equal `[]`, with color contrast disabled in jsdom.
+   matters with `runOnly` tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa` (the set
+   `test-accessibility` uses) and assert the violation ids equal `[]`. `color-contrast` and
+   `target-size` need layout: in jsdom contrast lands in `incomplete` and `target-size` passes
+   on buttons a browser flags (measured below), so disable contrast there and check both in a
+   browser runner.
    axe does not replace the keyboard path from step 5. Read
    [references/checks.md](references/checks.md) for axe setup, keyboard and focus checks, and
    snapshot rules.
@@ -96,24 +119,28 @@ belong to `test-visual`.
   Enter submits nothing on any variant. axe-core reports zero violations on the bug.
 - Cart row with an icon-only remove button: axe-core reports `button-name` and the role query
   fails; the labelled fix passes both. Light gray on white is not a contrast violation in jsdom;
-  axe puts the rule in `incomplete`.
+  axe puts the rule in `incomplete`. Two 16 px buttons two pixels apart pass `target-size` in
+  jsdom; the same markup is a violation in Chromium (`test-accessibility`'s example).
 - Invoice list whose hook ignores `response.ok`: the happy path passes on both variants; an MSW
   500 catches the bug (the buggy list shows "No invoices yet" instead of an error), while a test
   that renders the view with a canned error state passes. With MSW 3.0 `onUnhandledFrame:
-  "error"`, an unhandled request rejects. A fixed sleep before an assertion logs one act warning
-  with `IS_REACT_ACT_ENVIRONMENT` on and none with it off, which is the state Vitest without
-  globals leaves it in.
+  "error"`, an unhandled request rejects and MSW logs it to `console.error`. A fixed sleep
+  before an assertion logs one or more act warnings with `IS_REACT_ACT_ENVIRONMENT` on (one in
+  this example) and none with it off, which is the
+  state Vitest without globals leaves it in. The leaking trees without `cleanup` are not
+  measured here.
 
 ## Anti-patterns
 
 - Querying by class, tag path or test id when a role and name exist; asserting on component
   state, props or instance methods.
 - Shallow rendering, or mocking child components, the component's own hooks or its modules.
-- `fireEvent.change` plus `fireEvent.click` as the only interaction: no focus, no keyboard, no
-  default actions, so mouse-only controls pass.
+- `fireEvent.change` plus `fireEvent.click` as the only interaction: the click's activation
+  runs, but there is no focus and no keyboard sequence, so mouse-only controls pass.
 - Fixed sleeps, empty `waitFor` calls, side effects inside `waitFor`, absence checks right after
   render.
-- Ignoring act warnings, or wrapping lines in `act` until they stop.
+- Ignoring act warnings, or wrapping lines in `act` until they stop (manual fake-timer advances
+  are the one place `act` belongs).
 - A store, query client or router shared across tests; real network calls allowed through.
 - Testing the library: asserting that the router navigates, the form library validates or the
   query cache caches, instead of what the component shows.

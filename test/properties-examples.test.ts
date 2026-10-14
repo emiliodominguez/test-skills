@@ -41,7 +41,7 @@ describe("invariant: allocation keeps every cent", function invariantSuite() {
 		});
 		const [[cents, parts]] = run.counterexample as [[number, number]];
 
-		expect(cents + parts).toBeLessThanOrEqual(5);
+		expect([cents, parts]).toEqual([1, 2]);
 	});
 });
 
@@ -62,8 +62,9 @@ describe("round trip: CSV decode after encode", function roundTripSuite() {
 		});
 		const [failing] = run.counterexample as [string[][]];
 
-		expect(failing.flat().join("")).toContain('"');
-		expect(failing.flat().join("").length).toBeLessThanOrEqual(3);
+		expect(failing).toHaveLength(1);
+		expect(failing[0]?.[0]).toBe('"');
+		expect(failing.flat().join("")).toBe('"');
 	});
 });
 
@@ -90,15 +91,30 @@ describe("model-based: an LRU cache against a list model", function modelSuite()
 	 * Store a key in the cache.
 	 */
 	class SetCommand implements fc.Command<Model, Real> {
+		/**
+		 * @param key - Key to store.
+		 * @param value - Value to store under the key.
+		 */
 		constructor(
 			readonly key: string,
 			readonly value: number,
 		) {}
 
+		/**
+		 * A set is valid in every state.
+		 *
+		 * @returns Always true.
+		 */
 		check(): boolean {
 			return true;
 		}
 
+		/**
+		 * Apply the set to the cache and the model, then compare sizes.
+		 *
+		 * @param model - The list model, updated in place.
+		 * @param real - The cache under test.
+		 */
 		run(model: Model, real: Real): void {
 			real.set(this.key, this.value);
 			model.keys = [...without(model.keys, this.key), this.key];
@@ -107,6 +123,11 @@ describe("model-based: an LRU cache against a list model", function modelSuite()
 			expect(real.size()).toBe(model.keys.length);
 		}
 
+		/**
+		 * Readable form for counterexample reports.
+		 *
+		 * @returns The command as `set(key, value)`.
+		 */
 		toString(): string {
 			return `set(${this.key}, ${this.value})`;
 		}
@@ -116,12 +137,26 @@ describe("model-based: an LRU cache against a list model", function modelSuite()
 	 * Read a key; the cache must agree with the model, and a hit refreshes recency in both.
 	 */
 	class GetCommand implements fc.Command<Model, Real> {
+		/**
+		 * @param key - Key to read.
+		 */
 		constructor(readonly key: string) {}
 
+		/**
+		 * A get is valid in every state.
+		 *
+		 * @returns Always true.
+		 */
 		check(): boolean {
 			return true;
 		}
 
+		/**
+		 * Read from the cache, compare with the model, and refresh recency in the model on a hit.
+		 *
+		 * @param model - The list model, updated in place.
+		 * @param real - The cache under test.
+		 */
 		run(model: Model, real: Real): void {
 			expect(real.get(this.key)).toBe(model.values.get(this.key));
 			if (model.values.has(this.key)) {
@@ -129,6 +164,11 @@ describe("model-based: an LRU cache against a list model", function modelSuite()
 			}
 		}
 
+		/**
+		 * Readable form for counterexample reports.
+		 *
+		 * @returns The command as `get(key)`.
+		 */
 		toString(): string {
 			return `get(${this.key})`;
 		}
@@ -174,12 +214,22 @@ describe("metamorphic: adding an item never lowers the total", function metamorp
 
 	test("the relation catches the threshold cliff without knowing any expected total", function metamorphic() {
 		const lines = fc.array(fc.nat({ max: 30_000 }), { maxLength: 5 });
-
-		bugCaughtFixPasses(function build(options: Options) {
+		const run = bugCaughtFixPasses(function build(options: Options) {
 			return fc.property(fc.tuple(lines, fc.nat({ max: 30_000 })), function neverLower([current, extra]) {
 				return discountedTotal([...current, extra], options) >= discountedTotal(current, options);
 			});
 		});
+		const [[current, extra]] = run.counterexample as [[number[], number]];
+		const before = current.reduce(function add(acc, line) {
+			return acc + line;
+		}, 0);
+		const after = before + extra;
+		const crossed = [10_000, 50_000].filter(function crossedBy(threshold) {
+			return before < threshold && threshold <= after;
+		});
+
+		expect(run.failed).toBe(true);
+		expect(crossed).toHaveLength(1);
 	});
 });
 

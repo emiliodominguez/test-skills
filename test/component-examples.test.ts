@@ -64,15 +64,16 @@ function verdict(result: string): string {
 }
 
 /**
- * The ids of the axe-core rules violated inside a rendered container (WCAG 2 A and AA rules).
- * Color contrast is off: jsdom has no layout or canvas, so axe can only mark it incomplete.
+ * The ids of the axe-core rules violated inside a rendered container (WCAG 2.0, 2.1 and 2.2 A and
+ * AA rules, the tag set `test-accessibility` uses). Color contrast is off: jsdom has no layout or
+ * canvas, so axe can only mark it incomplete.
  *
  * @param container - Root of the rendered component.
  * @returns Violated rule ids.
  */
 async function axeViolations(container: Element): Promise<string[]> {
 	const results = await axe.run(container, {
-		runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] },
+		runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
 		rules: { "color-contrast": { enabled: false } },
 	});
 
@@ -239,7 +240,11 @@ describe("coupon form: role queries and user-event against test ids, CSS and fir
 	test("axe-core finds no violation in the mouse-only control", async function axeMissesIt() {
 		const { container } = render(variants.buggy(vi.fn()));
 
-		expect(await axeViolations(container)).toEqual([]);
+		try {
+			expect(await axeViolations(container)).toEqual([]);
+		} finally {
+			cleanup();
+		}
 	});
 });
 
@@ -290,14 +295,54 @@ describe("cart item: axe-core inside a component test", function cartSuite() {
 
 	test("jsdom cannot judge color contrast: light gray on white is not a violation", async function contrast() {
 		const { container } = render(h(FaintNotice));
-		const results = await axe.run(container, { runOnly: { type: "rule", values: ["color-contrast"] } });
 
-		expect(results.violations).toEqual([]);
-		expect(
-			results.incomplete.map(function toId(result) {
-				return result.id;
-			}),
-		).toEqual(["color-contrast"]);
+		try {
+			const results = await axe.run(container, { runOnly: { type: "rule", values: ["color-contrast"] } });
+
+			expect(results.violations).toEqual([]);
+			expect(
+				results.incomplete.map(function toId(result) {
+					return result.id;
+				}),
+			).toEqual(["color-contrast"]);
+		} finally {
+			cleanup();
+		}
+	});
+});
+
+describe("axe-core rules that need layout, under jsdom", function layoutRulesSuite() {
+	test("jsdom cannot judge target size: two 16px buttons two pixels apart pass target-size", async function targetSize() {
+		const { container } = render(
+			h(
+				"div",
+				{ style: { display: "flex", gap: "2px" } },
+				h("button", { "aria-label": "Previous", style: { width: "16px", height: "16px", padding: 0 } }),
+				h("button", { "aria-label": "Next", style: { width: "16px", height: "16px", padding: 0 } }),
+			),
+		);
+
+		try {
+			const results = await axe.run(container, { runOnly: { type: "rule", values: ["target-size"] } });
+
+			/**
+			 * Rule ids of one axe result bucket.
+			 *
+			 * @param list - Results in a bucket.
+			 * @returns Their rule ids.
+			 */
+			function ids(list: Array<{ id: string }>): string[] {
+				return list.map(function toId(result) {
+					return result.id;
+				});
+			}
+
+			// In a real browser the same markup is a target-size violation (examples/accessibility/verify.mjs).
+			expect(ids(results.violations)).toEqual([]);
+			expect(ids(results.passes)).toEqual(["target-size"]);
+		} finally {
+			cleanup();
+		}
 	});
 });
 
@@ -406,6 +451,7 @@ describe("invoice list: fake the network, not the hook", function invoiceSuite()
 		try {
 			render(h(InvoiceList, { url: API, fixed: true }));
 			// The anti-pattern under test: a fixed sleep standing in for "the rows rendered".
+			// audit-tests-ignore sleep: the fixed sleep is the anti-pattern this test demonstrates
 			await new Promise(function sleep(resolve) {
 				setTimeout(resolve, 100);
 			});
@@ -440,9 +486,12 @@ describe("invoice list: fake the network, not the hook", function invoiceSuite()
 		failTheEndpoint();
 		render(h(InvoiceList, { url: API }));
 
-		expect((await screen.findByText(EMPTY_MESSAGE)).tagName).toBe("P");
-		expect(screen.queryByRole("alert")).toBeNull();
-		cleanup();
+		try {
+			expect((await screen.findByText(EMPTY_MESSAGE)).tagName).toBe("P");
+			expect(screen.queryByRole("alert")).toBeNull();
+		} finally {
+			cleanup();
+		}
 	});
 
 	test("replacing the hook with a canned error state passes while the bug ships", async function stubbedHook() {

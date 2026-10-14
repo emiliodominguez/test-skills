@@ -25,6 +25,28 @@ with trajectory assertions on an eval set.
   design; results return with the right ids.
 
 ```ts
+import { MockLanguageModelV4 } from "ai/test";
+import { expect } from "vitest";
+// GenerateResult, USAGE and textResult as defined in mocking.md. runTriage, createFakeStore,
+// ticket and FINAL_JSON come from the feature and its fixtures.
+
+/**
+ * A tool-call result in the V4 provider format.
+ *
+ * @param toolCallId - Call id.
+ * @param toolName - Tool name.
+ * @param input - Arguments the model chose.
+ * @returns The result.
+ */
+function toolCallResult(toolCallId: string, toolName: string, input: unknown): GenerateResult {
+	return {
+		content: [{ type: "tool-call", toolCallId, toolName, input: JSON.stringify(input) }],
+		finishReason: { unified: "tool-calls", raw: "tool_calls" },
+		usage: USAGE,
+		warnings: [],
+	};
+}
+
 const store = createFakeStore();
 const model = new MockLanguageModelV4({
 	/**
@@ -40,7 +62,11 @@ const model = new MockLanguageModelV4({
 const run = await runTriage(ticket, { model, store });
 
 expect(run.toolCalls).toEqual([{ toolCallId: "call-1", toolName: "lookupOrder", input: { orderId: "A-1002" } }]);
-expect(store.calls.map(function name(call) { return call.tool; })).toEqual(["lookupOrder"]);
+expect(
+	store.calls.map(function name(call) {
+		return call.tool;
+	}),
+).toEqual(["lookupOrder"]);
 expect(run.modelCalls).toBeLessThanOrEqual(2);
 ```
 

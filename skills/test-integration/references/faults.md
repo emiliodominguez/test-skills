@@ -16,6 +16,7 @@
 | Out-of-order messages | Stale updates ignored (versions, timestamps) | Publish in reverse order |
 | Poison message | Moved to a dead-letter queue after N attempts; the rest of the queue keeps flowing | Publish a message the handler cannot parse |
 | Database or broker unavailable mid-operation | Transaction rolled back; outbox or retry; no half-written state | Stop the container; Toxiproxy between the app and the engine |
+| Connection pool exhausted or leaking | A caller waiting for a connection gives up within a bounded acquire timeout with a typed error ("pool exhausted"), never hangs; an error path returns its connection; the pool is idle after each test | A pool of size 1 or 2 held by a test, then one more call; run the error paths N times past the pool size; assert idle and total counts from the pool after each test |
 
 ## Assertions
 
@@ -89,12 +90,15 @@ function fakeProvider(faults: Fault[]) {
 Verified with msw 3.0.3 in this repository:
 
 - The option is `onUnhandledFrame` (`"error"`, `"warn"`, `"bypass"` or a function). The msw 2
-  name `onUnhandledRequest` is ignored at runtime: the unmatched request warns and goes to the
-  real network. TypeScript rejects the old name; plain JavaScript does not.
+  name `onUnhandledRequest` is ignored at runtime: with `{ onUnhandledRequest: "error" }`, a
+  request to a closed local port failed with `ECONNREFUSED` instead of msw's "error" strategy
+  message, so the request went to the network. TypeScript rejects the old name; plain
+  JavaScript does not.
 - `HttpResponse.error()` makes `fetch` reject with `TypeError: fetch failed`, like a dropped
   connection.
-- A client's `AbortSignal.timeout` aborts a request stalled in `delay`; the handler keeps running,
-  which is the realistic case of a provider that finishes after the client gave up.
+- A client's `AbortSignal.timeout` aborts a request stalled in `delay`. The abort does not undo
+  what the handler did before the stall: the charge recorded first stays recorded, the realistic
+  case of a provider that committed before the client gave up.
 
 Outside JavaScript: WireMock (Java, or standalone in a container for any language) with
 scenarios for per-attempt state, `responses` or `respx` for Python, `httptest` servers for Go.

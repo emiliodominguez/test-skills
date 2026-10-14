@@ -29,8 +29,11 @@ few critical integrations.
 4. Before deploying either side, the pipeline asks the broker whether this version is verified
    against the versions deployed in the target environment (`can-i-deploy`), and records the
    deployment afterwards.
-5. New consumer expectations start as pending, so they do not break the provider's build until
-   verified once.
+5. New consumer expectations can start as pending, so they do not break the provider's build
+   until verified once. That happens only when the provider's verification enables pending pacts
+   (`enablePending` in pact-js and most other implementations) and the pacts come from a broker
+   that supports them (Pact Broker or PactFlow); otherwise every new expectation fails the
+   provider build immediately.
 
 Keep interactions minimal: only fields the consumer reads, matchers instead of literals. A pact
 that pins every field is a snapshot and breaks on harmless changes.

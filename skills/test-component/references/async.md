@@ -23,22 +23,33 @@ person would see, never for a duration.
 Use them for debounce, throttle, polling, toasts that expire, session timeouts.
 
 - Under Vitest, `vi.useFakeTimers()` freezes the timers Testing Library uses to poll, and it only
-  advances Jest's fake timers on its own. Measured with Vitest 5 and @testing-library/dom 10.4:
-  `findBy` under plain `vi.useFakeTimers()` did not resolve before the test timeout. Use
+  advances Jest's fake timers on its own. Observed with Vitest 5 and @testing-library/dom 10.4,
+  not asserted in this repository's evidence suite: a `findBy` waiting for content that a timer
+  renders did not resolve before the test timeout under plain `vi.useFakeTimers()`. Use
   `vi.useFakeTimers({ shouldAdvanceTime: true })`, or advance the clock yourself before querying.
 - Give user-event the clock: `userEvent.setup({ advanceTimers: vi.advanceTimersByTime })`
   (Jest: `jest.advanceTimersByTime`). Without it, awaited user-event calls wait on timers that
   do not advance.
 - Restore real timers in `afterEach`, or one test's fake clock leaks into the next.
 
-```ts
+- Advancing fake timers by hand is the one place to wrap a call in `act`: the timer callbacks
+  update state, and Testing Library does not wrap `vi.advanceTimersByTime` for you. Everywhere
+  else, await the visible result instead.
+
+```tsx
+import { act, render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+import { expect, test, vi } from "vitest";
+
 test("search waits for typing to pause", async function debounce() {
 	vi.useFakeTimers({ shouldAdvanceTime: true });
 	const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
 	render(<ProductSearch />);
 	await user.type(screen.getByRole("searchbox", { name: "Search products" }), "mug");
-	vi.advanceTimersByTime(300);
+	act(function advanceDebounce() {
+		vi.advanceTimersByTime(300);
+	});
 
 	expect(await screen.findByRole("list", { name: "Results" })).toBeTruthy();
 });
@@ -54,25 +65,53 @@ visible result with `findBy` or `waitFor`; wrapping the line in `act` by hand hi
 
 React only warns when `globalThis.IS_REACT_ACT_ENVIRONMENT` is true. React Testing Library sets it,
 and registers its automatic `cleanup`, through the runner's global `beforeAll`, `afterAll` and
-`afterEach`. Vitest's default is `globals: false`, so neither happens: tests leak rendered trees
-into each other and act warnings stay silent. Measured in this repository with React 19.3 and
-React Testing Library 16.3: a fixed sleep before an assertion produced one act warning with the
-flag on and none with it off. Fix it once in a setup file, or turn on the runner's globals:
+`afterEach`. Vitest's default is `globals: false`, so neither happens: rendered trees stay in the
+document for the next test, and act warnings stay silent. Measured in this repository with React
+19.3 and React Testing Library 16.3: a fixed sleep before an assertion produced one or more act
+warnings with the flag on (one in that example; each state update outside act can add one) and
+none with it off. Fix it once in a setup file, or turn on the runner's globals.
+
+One setup file (`setupFiles` in the runner config) that sets the act flag, cleans up, fails on
+unhandled requests and fails the test on any unexpected `console.error`:
 
 ```ts
+// test/setup.ts
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, vi, type MockInstance } from "vitest";
+import { server } from "./server"; // setupServer(...handlers), see network.md
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-afterEach(function unmountEverything() {
+let consoleError: MockInstance;
+
+beforeAll(function listen() {
+	server.listen({ onUnhandledFrame: "error" });
+});
+
+beforeEach(function watchConsole() {
+	consoleError = vi.spyOn(console, "error");
+});
+
+afterEach(function cleanUpAndCheckConsole() {
 	cleanup();
+	server.resetHandlers();
+
+	const calls = consoleError.mock.calls;
+
+	consoleError.mockRestore();
+	// Act warnings, MSW's unhandled-request log, key warnings: all fail the test that caused them.
+	expect(calls).toEqual([]);
+});
+
+afterAll(function close() {
+	server.close();
 });
 ```
 
-Then fail the suite on unexpected `console.error` (act warnings, key warnings, failed prop
-types): spy in `beforeEach`, assert the filtered calls are empty in `afterEach`, and allow
-specific messages by exact text in the test that expects them.
+A test that expects a specific error (an error boundary, the test that proves an unhandled
+request fails) allowlists it in place: `vi.mocked(console.error).mockImplementation(function
+silence() {})`, assert the exact message from `vi.mocked(console.error).mock.calls`, then
+`vi.mocked(console.error).mockClear()` so the guard sees only unexpected calls.
 
 ## Other async sources
 

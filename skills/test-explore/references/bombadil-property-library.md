@@ -31,7 +31,7 @@ Flatten the translation catalogs at bundle time into key sets so the checks do n
 | `noHorizontalOverflow` | `documentElement.scrollWidth - innerWidth <= 1` |
 | `controlsHaveNames` | Every button, link and field has an accessible name (aria-label, labelledby, title, label, text, image alt) |
 | `dialogsHaveNames` | Every dialog has a name |
-| `focusStaysInModal` | With a modal open (`dialog:modal`, `:popover-open`), focus is inside it |
+| `focusStaysInModal` | With a modal open (`dialog:modal`, or `[role=dialog]` or `[role=alertdialog]` with `aria-modal=true`), focus is inside it; popovers are not modal |
 | `noDuplicateIds` | Ids are unique |
 | `referencesResolve` | `aria-labelledby`, `aria-describedby`, `aria-controls` (unless collapsed) and `label[for]` point at existing ids |
 | `dialogsFitTheWindow` | Dialog rectangles are inside the viewport |

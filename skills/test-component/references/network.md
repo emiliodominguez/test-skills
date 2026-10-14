@@ -36,7 +36,11 @@ afterAll(function close() {
   `fetch` rejects (`TypeError: fetch failed`, cause "Cannot bypass a request when using the
   "error" strategy") and MSW logs the request; the old `onUnhandledRequest: "error"` is
   ignored and the request goes to the real network. Rename it on upgrade, and keep a test that
-  proves an unhandled request fails.
+  proves an unhandled request fails; that test allowlists MSW's `console.error` message by text.
+- **The rejection alone is not enough.** A component that catches its fetch errors swallows the
+  rejection, shows its error state, and the test can still pass. MSW also logs every unhandled
+  request to `console.error`, so the suite fails through the `console.error` guard in the setup
+  file ([async.md](async.md)). Keep both the option and the guard.
 - **Default handlers are the happy path.** Put them in one module shared by tests, stories and
   development. Override per test with `server.use(...)`; `resetHandlers` in `afterEach` drops
   the overrides.
@@ -78,6 +82,11 @@ server.use(
 // ... act through the UI, wait for the confirmation ...
 expect(received).toEqual([{ code: "SAVE10" }]);
 ```
+
+To assert that nothing was sent (a validation error blocks submit), assert `received` equals `[]`
+before querying the form for its error message. If the bug lets the submit through and a success
+screen replaces the form, the failure then names the request instead of "Unable to find an
+accessible element with the role textbox".
 
 ## What not to mock
 

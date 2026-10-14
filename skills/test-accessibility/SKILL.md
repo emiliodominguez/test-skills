@@ -66,9 +66,10 @@ violations.
    - Custom controls activate with Enter and Space; composite widgets (tabs, menus, listboxes,
      grids) take one tab stop and move with arrow keys.
    - Opening a dialog moves focus inside, Tab and Shift+Tab stay inside, Escape closes it, focus
-     returns to the opener.
-   - Skip links move focus to the main content; a sticky header never covers the focused element
-     (2.4.11).
+     returns to the opener. A native `showModal()` dialog hands Tab past its last control to the
+     browser UI (focus reads `body`): allow `body`, fail only on a page element outside it.
+   - Skip links move focus to the main content; a sticky header never entirely covers the
+     focused element (2.4.11; keeping it fully visible is 2.4.12, AAA).
 
    Press real keys; `element.focus()` skips the very handlers under test. Read
    [references/keyboard.md](references/keyboard.md) for the code.
@@ -115,8 +116,8 @@ violations.
   writing a browser check.
 - [references/manual.md](references/manual.md): the screen reader smoke protocol, key commands
   and a results template. Read before a release pass.
-- [references/wcag-map.md](references/wcag-map.md): WCAG 2.2 A and AA criteria mapped to risk,
-  axe rule and check. Read when planning coverage or triaging what a scan misses.
+- [references/wcag-map.md](references/wcag-map.md): every WCAG 2.2 A and AA criterion mapped to
+  risk, axe rule and check. Read when planning coverage or triaging what a scan misses.
 
 ## Measured in this repository
 
@@ -136,9 +137,12 @@ with fourteen bugs switched on by `?bugs=`, in Chromium with playwright-core 1.6
 - The fixed page has zero violations in every state and passes all nine checks.
 - A baseline recorded with two known violations fails only on a newly added one and lists the
   fixed one as resolved.
-- A default `axe.run` does not run `target-size`; with the `wcag22aa` tag it flags two 16 px
-  buttons.
+- A default `axe.run` does not run `target-size`; with the `wcag22aa` tag it flags both of two
+  16 px buttons (the script asserts two nodes).
 - axe under jsdom 30 reports the low-contrast text as `incomplete`, not as a violation.
+- Observed, not asserted: the reflow bug overflows by 336 px at 320 px wide, and focus left by a
+  dialog that does not restore it has landed on `body` in one run and on the hidden Cancel button
+  in another. The checks assert only "overflow at most 1 px" and "focus is on the opener".
 
 Nothing here measures screen reader output: the manual protocol is a procedure, not a result.
 

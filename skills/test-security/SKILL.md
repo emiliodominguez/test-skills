@@ -18,7 +18,9 @@ without a test that would have failed is a regression waiting to happen.
    the day it is added.
 2. **Generate valid input from the schema.** Convert the schema to JSON Schema, sample candidates
    from a small vocabulary per type, and keep the first one the schema accepts. Valid input
-   matters: without it, a handler that refuses everything looks secure.
+   matters: without it, a handler that refuses everything looks secure. Prefer a schema-driven
+   generator (fast-check or Hypothesis from the schema, Schemathesis for OpenAPI or GraphQL; see
+   `test-properties`) over a hand-rolled sampler.
 3. **Authorization matrix.** Call each procedure once per caller state: signed out, each role,
    roles stripped, session locked. Compare the outcome code per cell with a golden file, or with
    explicit allowlists of public and any-signed-in procedures. Adding a procedure to an allowlist
@@ -44,6 +46,12 @@ without a test that would have failed is a regression waiting to happen.
    then read the diff: every cell that turns from forbidden to anything else is a person who may
    now do something they could not.
 
+## Out of scope: supply chain and static analysis
+
+This skill tests the running surface. Dependency audit, secret scanning and static analysis
+(SAST) are scanners, not tests: run them on every change with their own tools and docs, and
+record each in the strategy table with its owner and what its findings block.
+
 ## From a sweep to tests
 
 After a manual break-in sweep, each finding becomes a fix, a rule in the guide and a test that
@@ -62,4 +70,5 @@ fails without the fix. Record the date and the count of findings that had no fai
 - Each fixed vulnerability has a test shown failing before the fix.
 - Unchecked surfaces (third-party callbacks, file handlers) are listed.
 
-Triage anything these tests or a fuzzing run surface with `test-findings`.
+Generate inputs with `test-properties`; triage anything these tests or a fuzzing run surface with
+`test-findings`.

@@ -53,13 +53,13 @@ process.
   skip invariants.
 - **Golden files** only with an explicit regeneration switch and a rule that every changed line
   is reviewed. Regenerate only when the meaning changed, never to make a test pass.
-- **Query-plan assertions** for every index added for a query, so a later change that stops
-  using it fails a test.
+- Query-plan assertions belong to `test-integration`: they need the production engine.
 
 ## Anti-patterns
 
 - Mocking the unit under test, or a mock that restates the implementation.
-- Tests for trivial getters, plain assignments or storage round trips.
+- Tests for trivial getters, plain assignments, or round trips through storage code you do not own
+  (an ORM save then load).
 - `expect` inside `if`, or assertions with custom messages instead of offender lists.
 - Snapshotting a large output nobody reads.
 - A retry, or a sleep, to stabilize a unit test.

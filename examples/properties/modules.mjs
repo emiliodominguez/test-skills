@@ -1,7 +1,7 @@
 // Small modules with one realistic bug each, and their fixed versions, for the property-based
-// testing examples in `properties.test.mjs`. Each bug is the kind example tests miss and one
-// property shape catches: allocation (invariant), CSV (round trip), LRU cache (model-based),
-// discount (metamorphic), sorting (oracle).
+// testing examples in `test/properties-examples.test.ts`. Each bug is the kind example tests miss
+// and one property shape catches: allocation (invariant), CSV (round trip), LRU cache
+// (model-based), discount (metamorphic), sorting (oracle).
 
 /**
  * Split an amount in cents into `parts` shares that differ by at most one cent.

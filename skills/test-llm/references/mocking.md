@@ -20,8 +20,9 @@ function. Every call is recorded in `doGenerateCalls` / `doStreamCalls` with the
 prompt: the system message has string content, user content is an array of parts.
 
 ```ts
-import { generateText } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { expect } from "vitest";
+// runTriage, ticket, store and FINAL_JSON come from the feature and its fixtures.
 
 type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
 
@@ -82,6 +83,10 @@ Version notes for ai 7.0.139, checked in this repository:
 - Pass `maxRetries: 0` in tests so the SDK's retry does not hide the feature's retry policy.
 
 ```ts
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
+// USAGE as defined in the block above.
+
 const model = new MockLanguageModelV4({
 	doStream: {
 		stream: simulateReadableStream({
@@ -112,6 +117,10 @@ endpoint. MSW 3 renamed the unhandled option: `server.listen({ onUnhandledFrame:
 reaching the network.
 
 ```ts
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll, test } from "vitest";
+
 const server = setupServer();
 const bodies: unknown[] = [];
 

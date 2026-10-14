@@ -24,7 +24,8 @@ fix, runs isolated and in parallel, and fits a stated time budget.
 
 If a test needs a browser to reach the bug, it is `test-e2e`. If it needs no I/O to reach it,
 move it down to `test-unit`: integration tests are slower and should only cover what lives in
-the seam.
+the seam. System tests without a UI (a flow across several services' APIs, a CLI, a background
+worker) belong here too, run against the services started together with compose.
 
 ## Process
 
@@ -80,9 +81,10 @@ the seam.
 7. **Inject faults at every outbound boundary.** Timeout, slow response, connection reset, a
    response lost after the provider committed, 5xx and 429 with `Retry-After`, 4xx, a malformed
    or truncated body, partial batch failure; for messages, duplicates, reordering and poison
-   messages. Assert what must hold: the caller's latency is bounded, only keyed or idempotent
-   calls are retried, attempts are bounded with backoff, side effects are counted exactly once,
-   and the caller gets a typed error. Read [references/faults.md](references/faults.md) for the
+   messages; for pools, exhaustion and leaked connections. Assert what must hold: the caller's
+   latency is bounded, only keyed or idempotent calls are retried, attempts are bounded with
+   backoff, side effects are counted exactly once, the caller gets a typed error, and the pool is
+   idle again after each test. Read [references/faults.md](references/faults.md) for the
    catalog and how to inject each fault.
 8. **Wait on conditions, never on time.** Asynchronous effects (a consumer handled the message, a
    projection caught up) are polled with a deadline and a clear failure message. A fixed sleep
@@ -129,11 +131,13 @@ the seam.
 - **Faults with msw.** A response lost after the charge: two charges without an idempotency key,
   one with. A one-second stall: the client without a timeout waits it out; with a 100 ms timeout
   and a keyed retry it finishes in under half the stall with one charge. A 422 is retried to the
-  budget by the buggy client and once by the fixed one. A malformed 200 is returned as a charge
-  without an id, or refused. Two 503s then success: three attempts, one charge.
+  budget by the buggy client and attempted once, with no retry, by the fixed one. A malformed
+  200 is returned as a charge without an id, or refused. Two 503s then success: three attempts,
+  one charge.
 - **msw 3 renamed the unhandled-request option.** `onUnhandledFrame: "error"` fails unmatched
-  requests; the msw 2 name `onUnhandledRequest` is ignored at runtime and the request goes to
-  the real network.
+  requests. With the msw 2 name, `{ onUnhandledRequest: "error" }`, a request to a closed local
+  port fails with `ECONNREFUSED` from the operating system: the option did not block it, and the
+  request went to the network.
 
 No container runtime was available, so Testcontainers, compose, Pact, WireMock, Toxiproxy and
 the PostgreSQL and MySQL behaviors in the references come from their documentation, not from

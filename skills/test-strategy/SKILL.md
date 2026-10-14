@@ -70,7 +70,8 @@ the gap or next action. Name the commands. Mark anything you inferred rather tha
 ## Anti-patterns
 
 - A coverage percentage target as the strategy.
-- Mocking the unit under test, or testing getters and storage round trips.
+- Mocking the unit under test, testing getters, or round trips through storage code you do not
+  own (an ORM save then load).
 - An end-to-end tour for logic a table-driven unit test covers in milliseconds.
 - Mocks standing in for a database or a partner service whose behavior is the risk.
 - One flaky layer retried until green instead of made deterministic.

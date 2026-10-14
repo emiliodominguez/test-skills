@@ -30,6 +30,8 @@ import { expect, test } from "vitest";
 import { dedupeBy } from "../src/dedupe.js";
 
 const BASELINE = "bench/dedupe.json";
+// Above the largest p50 ratio seen in 20 runs of unchanged code on the enforcing runner.
+const P50_RATIO_LIMIT = 1.25;
 const items = Array.from({ length: 2000 }, function item(_, index) {
 	return { sku: `sku-${index % 1500}` };
 });
@@ -53,7 +55,7 @@ function run() {
 	return dedupeBy(items, skuOf);
 }
 
-test("dedupe is no slower than the stored baseline", async function againstBaseline({ bench }) {
+test("dedupe p50 stays within the calibrated ratio of the baseline", async function againstBaseline({ bench }) {
 	const options = { time: 500, warmupTime: 100 };
 
 	if (process.env.WRITE_BASELINE || !existsSync(BASELINE)) {
@@ -63,25 +65,29 @@ test("dedupe is no slower than the stored baseline", async function againstBasel
 	}
 
 	const result = await bench.compare(bench.from("baseline", BASELINE), bench("dedupe", run), options);
+	const ratio = result.get("dedupe").latency.p50 / result.get("baseline").latency.p50;
 
-	expect(result.get("dedupe")).not.toBeSlowerThan(result.get("baseline"), { delta: 0.1 });
+	expect(ratio).toBeLessThanOrEqual(P50_RATIO_LIMIT);
 });
 ```
 
 - `bench.compare(a, b, options)` prints a table with mean, p75, p99, rme and sample count, and
-  returns results; `toBeFasterThan` and `toBeSlowerThan` compare mean latency with an optional
-  `delta` tolerance. With this shape, a seeded quadratic dedupe failed as "5599.63% slower".
-- The same shape also failed 8 of 20 runs with no code change at all, on a shared 4-core machine:
-  the mean moved up to 28% while the fastest sample stayed within 2%. Before gating on a stored
-  baseline, run the unchanged code 20 times, record the largest false "slower", and set `delta`
-  above it, or keep the comparison as a warning that triggers a same-job rerun.
+  returns results whose `latency` carries `mean`, `p50`, `p75`, `p99`, `sd`, `mad` and `rme`.
+- Gate on a robust statistic. The built-in `toBeFasterThan` and `toBeSlowerThan` compare mean
+  latency with an optional `delta`; with unchanged code against its own stored baseline on a
+  shared 4-core machine, `not.toBeSlowerThan(baseline, { delta: 0.1 })` failed 8 of 20 runs (mean
+  up to 28% slower, fastest sample within 2%). Keep a mean comparison as a warning that triggers a
+  same-job rerun, never as the gate.
+- Calibrate the limit: run the unchanged code 20 times against its own baseline on the enforcing
+  runner, record the largest p50 ratio, and set the limit above it with margin. Observed, not
+  asserted, with the snippet above on a 4-core machine: p50 ratios of at most 1.08 in 20 runs alone
+  and 1.04 in 12 runs with four concurrent copies, while the mean exceeded the baseline by more than
+  10% in 8 of those 20 runs. The seeded quadratic dedupe read a p50 ratio of about 67 and failed.
 - `bench.from` throws when the file is missing, hence the write branch. It reads the stored
   numbers and does not re-run them, so the baseline must come from the same runner type; for a
   strict same-machine comparison, build base and head and bench both in one job.
 - Write the baseline only from the main-branch job. A baseline rewritten on every passing run lets
   small regressions accumulate.
-- Results carry `latency.p50`, `p99`, `sd`, `mad` and `rme`. Assert on a robust statistic, and
-  keep the threshold wider than the run-to-run spread measured on that runner.
 
 ## Statistics that decide
 

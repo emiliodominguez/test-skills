@@ -35,10 +35,13 @@ const getAttribute = Element.prototype.getAttribute;
 Element.prototype.getAttribute = function readAttribute(name) {
 	const value = getAttribute.call(this, name);
 
-	return value === null && name === "data-test" && this.isConnected ? keyOf(this) : value;
+	return value === null && name === "data-testid" && this.isConnected ? keyOf(this) : value;
 };
 ```
 
+Bombadil 0.7.8 reads the test id as `data-testid ?? data-test-id ?? data-cy ?? data-test`, so
+patch `data-testid`: a synthesized `data-testid` hides any later attribute the app sets. If the
+app already uses `data-cy` or another later name, return that value before synthesizing a key.
 Folding digits keeps keys stable when counts and totals change. Traces recorded before the kit
 existed will not replay.
 

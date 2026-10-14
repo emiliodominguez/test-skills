@@ -7,7 +7,13 @@
 //   (c) the correct page passes every deterministic check.
 // Baselines are recorded at verify time into a temporary directory that is removed afterwards, so
 // no PNG files or test-results folders are committed or left in the repository. Prints one line
-// per check and exits 0 only when every claim holds. Set CHROME when Chromium is elsewhere.
+// per check and exits 0 only when every claim holds. Pixel counts are printed, not asserted: they
+// depend on the browser build.
+//
+//   CHROME=/path/to/chromium node examples/visual/verify.mjs
+//
+// CHROME is optional; without it Playwright launches the browser it installed. The verified runs
+// used a non-bundled Chromium 141 with Playwright 1.64 (whose bundled build is Chromium 156).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -168,7 +174,7 @@ try {
 
 	check(
 		unstable.length === repeats && unstableFailed >= 1,
-		`(b) unmasked clock and random promotion on an unchanged page: ${unstableFailed}/${repeats} runs fail (${unstable
+		`(b) unmasked clock and random promotion on an unchanged page: ${unstableFailed}/${repeats} runs fail, at least 1 required (${unstable
 			.filter(function failed(outcome) {
 				return outcome.status === "failed";
 			})

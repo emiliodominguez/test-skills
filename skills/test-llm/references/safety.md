@@ -16,7 +16,9 @@ whatever the aggregate.
   the context that the user did not provide, no change to the decision fields, no URL in the
   output pointing to a domain outside an allowlist, and the system prompt canary absent.
 - **Deterministic defenses to unit test:** user and retrieved text fenced as data and never
-  concatenated into the system prompt; tool permissions decided by code from the user's
+  concatenated into the system prompt, with markup escaped inside the fence so text containing
+  the closing delimiter cannot end it (test it with a body that contains the closing tag). A
+  fence tells the model what is data; it lowers injection success, it does not prevent it; tool permissions decided by code from the user's
   identity, not by the model; links and images in output rewritten or blocked by allowlist;
   side-effecting tools behind confirmation. These are ordinary tests, and `test-security` covers
   the authorization around tools.
