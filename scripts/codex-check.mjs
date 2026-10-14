@@ -439,7 +439,7 @@ async function main() {
 
 			const bombadil = sandbox("workspace-write", [
 				"node",
-				"skills/test-bombadil/assets/bombadil-run.mjs",
+				"skills/test-explore/assets/bombadil-run.mjs",
 				"--terminal",
 				"node examples/buggy-cli/todo.mjs",
 				"--spec",

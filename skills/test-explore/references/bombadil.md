@@ -1,12 +1,8 @@
----
-name: test-bombadil
-description: "Property-based UI exploration with Bombadil: install, harness, runner, campaigns and CI for web or Electron apps. Use when setting up or running Bombadil or autonomous UI testing. Hands off to `test-bombadil-spec` for properties and `test-findings`."
-compatibility: "Bombadil 0.7.x (verified on 0.7.8) on macOS arm64 or Linux x64/arm64; Node 20+; Chrome or Chromium, an Electron app with a DevTools port, or a terminal program."
-metadata:
-  stage: explore
----
+# Bombadil: setup and runs
 
-# Bombadil
+Verified on Bombadil 0.7.8 (`@antithesishq/bombadil`), macOS arm64 or Linux x64/arm64, Node 20+,
+with Chrome or Chromium, an Electron app with a DevTools port, or a terminal program.
+
 
 Bombadil drives a web interface at random and, after every action, checks properties: statements
 that must hold whatever the user did. It reports the first state where one fails, with a trace to
@@ -46,11 +42,11 @@ Without the runner: `bombadil browser test <origin> [spec] --headless --time-lim
   you launch the app with `--remote-debugging-port=<port>`. Omit `--create-target` for Electron
   so Bombadil uses the existing window instead of opening a tab.
 - **Terminal program** (`terminal test -- <command>`): Bombadil runs a CLI or TUI in a
-  pseudo-terminal and checks the rendered screen. Read [references/terminal.md](references/terminal.md);
+  pseudo-terminal and checks the rendered screen. Read [bombadil-terminal.md](bombadil-terminal.md);
   the runner takes `--terminal "<command>"`.
 - Exploration stays on the origin. (Newer releases add `--allow-url` match patterns; 0.7.8 does
   not have it.) Pass auth with `--cookie` or `--header`, or sign in through a gated action (see
-  `test-bombadil-spec`).
+  [bombadil-spec.md](bombadil-spec.md)).
 
 ## Sandboxed agents
 
@@ -74,8 +70,8 @@ A raw run explores, but its findings often do not replay and some failures stay 
    `node scripts/bombadil-run.mjs --reproduce <output>`, which starts the app the same way and
    writes the replay to `<output>/replay`.
 
-Read [references/harness.md](references/harness.md) for the page kit internals, settling and
-seeded fault injection, and [references/runner.md](references/runner.md) for what a runner owns
+Read [bombadil-harness.md](bombadil-harness.md) for the page kit internals, settling and
+seeded fault injection, and [bombadil-runner.md](bombadil-runner.md) for what a runner owns
 (bundling, watchdog, policy, latency baselines) when a project outgrows the bundled one.
 
 ## Phase 4: Run it on a cadence
@@ -84,13 +80,13 @@ seeded fault injection, and [references/runner.md](references/runner.md) for wha
   past violations, to see it is silent on a correct app and actually reached its screen.
 - **Per change (optional):** a short smoke spec, 2-5 minutes, exit on violation.
 - **Scheduled:** long campaigns across specs, locales, viewports, themes, fault profiles and data
-  sets. Read [references/campaigns.md](references/campaigns.md) for matrix scheduling and CI.
+  sets. Read [bombadil-campaigns.md](bombadil-campaigns.md) for matrix scheduling and CI.
 
 Clean rounds can delete their output; screenshots grow fast.
 
 ## Version notes
 
-Read [references/gotchas.md](references/gotchas.md) before debugging a run that hangs, diverges
+Read [bombadil-gotchas.md](bombadil-gotchas.md) before debugging a run that hangs, diverges
 on replay, crashes on a string, or ignores your clicks. They are 0.7.x behaviors with known
 workarounds.
 
@@ -109,4 +105,4 @@ workarounds.
   its divergence is explained (settling, ids, data).
 - The cadence (per change, scheduled) is wired or explicitly deferred.
 
-Write properties and actions with `test-bombadil-spec`; triage what runs find with `test-findings`.
+Write properties and actions with [bombadil-spec.md](bombadil-spec.md); triage what runs find with `test-findings`.

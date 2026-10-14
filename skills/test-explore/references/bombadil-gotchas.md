@@ -19,7 +19,7 @@ Observed behaviors and their workarounds. Re-check them when upgrading.
 | No JavaScript coverage | Coverage is measured only for scripts fetched over HTTP | Serve the built renderer from a local HTTP server; disable instrumentation for performance runs |
 | Slow scripts trip latency properties | Coverage instrumentation slows execution | Relax performance thresholds when coverage is on |
 | Viewport changes after navigation | Emulated size can lapse | Also set the real window size; reset zoom each run |
-| Random typing eats the run | Default typing is long and slow | Replace with short fast bursts (see `test-bombadil-spec`) |
+| Random typing eats the run | Default typing is long and slow | Replace with short fast bursts (see [bombadil-action-patterns.md](bombadil-action-patterns.md)) |
 | `trace.jsonl already exists` | Output folder reused | Pass `--output-path-overwrite` |
 | `--reproduce` rejected | It conflicts with `--time-limit` and `--exit-on-violation` | Drop those flags when replaying |
 | An `eventually` fails only when the test ends | Unbounded, it stays pending and is reported as "test ended" at the time limit, far from the cause | Bound it: `eventually(check).within(n, "seconds")` |

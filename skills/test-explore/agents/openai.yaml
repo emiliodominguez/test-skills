@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Exploration"
+  short_description: "Random action sequences checked against properties in every state"
+  default_prompt: "Use $test-explore to set up exploration for this app with the driver that fits the stack, run the generic properties clean, then add one domain property and report."

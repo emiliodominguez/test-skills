@@ -3,11 +3,11 @@
 import { always } from "@antithesishq/bombadil";
 import { extract, weighted } from "@antithesishq/bombadil/browser";
 import { clicks, inputs, reload, scroll } from "@antithesishq/bombadil/browser/defaults/actions";
-import { hostileTyping, keyboard, shortTyping, waiting } from "../../../skills/test-bombadil-spec/assets/kit/actions.ts";
-import { minorUnits } from "../../../skills/test-bombadil-spec/assets/kit/dom.ts";
-import { settles } from "../../../skills/test-bombadil-spec/assets/kit/temporal.ts";
+import { hostileTyping, keyboard, shortTyping, waiting } from "../../../skills/test-explore/assets/bombadil-kit/actions.ts";
+import { minorUnits } from "../../../skills/test-explore/assets/bombadil-kit/dom.ts";
+import { settles } from "../../../skills/test-explore/assets/bombadil-kit/temporal.ts";
 
-export * from "../../../skills/test-bombadil-spec/assets/kit/properties.ts";
+export * from "../../../skills/test-explore/assets/bombadil-kit/properties.ts";
 
 const cart = extract(function readCart(state) {
 	const rows = Array.from(state.document.querySelectorAll("#cart tbody tr"));

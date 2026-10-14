@@ -1,4 +1,0 @@
-interface:
-  display_name: "E2E to Bombadil"
-  short_description: "Lift scripted assertions into properties"
-  default_prompt: "Use $test-e2e-to-bombadil to lift the rules in our end-to-end tests into Bombadil properties."

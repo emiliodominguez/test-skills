@@ -1,13 +1,17 @@
 # Buggy Shop
 
-A four-product store with seeded bugs, and a Bombadil specification that finds them without a
-single scripted path. `--fixed` serves the same app with every bug turned off, so the same
-specification can be shown to stay silent on a correct build.
+A four-product store with seeded bugs, explored by three drivers without a single scripted path:
+Bombadil, fast-check with Playwright, and Hypothesis with Playwright. `--fixed` serves the same
+app with every bug turned off, so each harness can be shown to stay silent on a correct build.
 
 ```sh
 pnpm install
-pnpm demo         # with bugs: exits 2 and prints the findings
-pnpm demo:fixed   # bugs off: exits 0, no findings
+pnpm demo            # Bombadil, with bugs: exits 2 and prints the findings
+pnpm demo:fixed      # Bombadil, bugs off: exits 0, no findings
+pnpm demo:fc         # fast-check + Playwright, with bugs: exits 2 with shrunk reproductions
+pnpm demo:fc:fixed   # fast-check + Playwright, bugs off: exits 0
+python -m pytest examples/buggy-shop/hypothesis -q                      # Hypothesis, with bugs: fails
+BUGGY_SHOP_FIXED=1 python -m pytest examples/buggy-shop/hypothesis -q   # Hypothesis, bugs off: passes
 ```
 
 Needs Chrome or Chromium; set `CHROME=/path/to/chrome` if it is not found.
@@ -31,5 +35,17 @@ because nobody thought of it; the property did not need anyone to.
 
 - `public/` - the app, plain HTML and JavaScript. Each bug sits behind `seeded("name")`.
 - `serve.mjs` - static server; `--fixed` turns the bugs off, `--kit` injects the page kit.
-- `bombadil/spec.ts` - the generic kit from `skills/test-bombadil-spec/assets/kit`, two domain
+- `bombadil/spec.ts` - the generic kit from `skills/test-explore/assets/bombadil-kit`, two domain
   properties and a weighted action mix.
+- `fast-check/explore.mjs` - the fast-check kit from `skills/test-explore/assets/fast-check-explore.mjs`
+  with the cart extractor and the `cartTotalAddsUp` property.
+- `hypothesis/test_explore.py` - a `RuleBasedStateMachine` with the same actions and properties
+  (needs `hypothesis`, `playwright` and `pytest`).
+
+## Measured
+
+| Driver                        | Budget      | Seeded bugs found                                                          | Fixed build |
+| ----------------------------- | ----------- | -------------------------------------------------------------------------- | ----------- |
+| Bombadil 0.7.8                | 2 minutes   | 5 or 6 of 6 per run                                                        | Silent      |
+| fast-check 4.10 + Playwright  | 4 minutes   | 6 of 6 in 4 of 5 measured runs, 5 in the other; each shrunk to 1-5 actions | Silent      |
+| Hypothesis 6.169 + Playwright | 60 examples | 5 of 6 (not the five-step stuck spinner), each shrunk to 2-3 steps         | Passes      |

@@ -1,11 +1,3 @@
----
-name: test-e2e-to-bombadil
-description: "Turns scripted end-to-end tests into Bombadil properties and workflow generators, so each assertion holds on every path instead of one. Use when a project has Playwright or Cypress tests and wants autonomous exploration. Hands off to `test-bombadil-spec` and `test-bombadil`."
-compatibility: "Bombadil 0.7.x; reads Playwright, Cypress or similar end-to-end suites."
-metadata:
-  stage: author
----
-
 # From end-to-end tests to properties
 
 An end-to-end test checks one path someone wrote down. Most of its assertions are really rules
@@ -70,4 +62,4 @@ export const cartTotalAddsUp = settles(function addsUp() {
 - Lifted properties are silent and reached on the current build.
 - At least one historical bug is caught by a property without the script.
 
-Write and tune the properties with `test-bombadil-spec`; run them with `test-bombadil`.
+Write the properties with the driver reference for your tool ([bombadil-spec.md](bombadil-spec.md), [fast-check.md](fast-check.md) or [hypothesis.md](hypothesis.md)).

@@ -1,12 +1,5 @@
----
-name: test-bombadil-spec
-description: "Bombadil specifications: extractors, temporal properties and replayable action generators. Use when writing or fixing Bombadil properties, actions or input value sets. Hands off to `test-bombadil` to run them or `test-findings` to triage violations."
-compatibility: "Bombadil 0.7.x specification API (@antithesishq/bombadil)."
-metadata:
-  stage: author
----
+# Bombadil: specifications
 
-# Bombadil specifications
 
 A specification is an ES module that exports only properties (formulas) and action generators.
 Properties state what must hold whatever the user did; generators decide what the user can do
@@ -14,7 +7,7 @@ next. Both must be cheap, deterministic and replayable.
 
 ## Start from the kit
 
-Copy `assets/kit/` from this skill's folder into the repository (for example
+Copy `assets/bombadil-kit/` from this skill's folder into the repository (for example
 `tests/bombadil/kit/`). It is typed against the Bombadil package and imports with explicit
 `.ts` extensions, which Bombadil's loader requires:
 
@@ -80,7 +73,7 @@ weights) free of Bombadil imports so it is unit-testable in Node.
 3. Find elements by role, accessible name, header text from the translation catalog, or a test
    id. A renamed class or message key silently disables a property; prefer stable hooks and list
    the hooks each property depends on.
-4. Pick the temporal shape. See [references/property-patterns.md](references/property-patterns.md):
+4. Pick the temporal shape. See [bombadil-property-patterns.md](bombadil-property-patterns.md):
    invariant, settles, bounded guarantee, `next` after an action, state machine, floor growth.
 5. Use the app's own pure code as the oracle where possible, and an independently written table
    where a shared bug would hide.
@@ -91,12 +84,12 @@ weights) free of Bombadil imports so it is unit-testable in Node.
    show as reached.
 
 Before writing generic checks from scratch, read
-[references/property-library.md](references/property-library.md): text sanity, layout and
+[bombadil-property-library.md](bombadil-property-library.md): text sanity, layout and
 accessibility, memory, network and injection properties that apply to most apps.
 
 ## Writing actions
 
-Read [references/action-patterns.md](references/action-patterns.md) before adding generators.
+Read [bombadil-action-patterns.md](bombadil-action-patterns.md) before adding generators.
 The rules that keep runs replayable and productive:
 
 - Offer only actions valid in the current state; return `[]` otherwise.
@@ -124,4 +117,4 @@ The rules that keep runs replayable and productive:
 - Each new generator replays: a reproduce of a run that used it matches.
 - The hooks each property depends on are named, so a rename is caught in review.
 
-Run them with `test-bombadil`; triage violations with `test-findings`.
+Run them as described in [bombadil.md](bombadil.md); triage violations with `test-findings`.

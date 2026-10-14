@@ -1,4 +1,0 @@
-interface:
-  display_name: "Bombadil Properties"
-  short_description: "Temporal properties and replayable actions"
-  default_prompt: "Use $test-bombadil-spec to add a property for the screen I describe and an action generator that reaches it."

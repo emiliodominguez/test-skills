@@ -10,7 +10,7 @@ import {
 	readTrace,
 	renderSummary,
 	summarizeTrace,
-} from "../skills/test-bombadil/assets/bombadil-run.mjs";
+} from "../skills/test-explore/assets/bombadil-run.mjs";
 
 const trace = [
 	{ action: null, state: { url: "http://app/" }, violations: [] },

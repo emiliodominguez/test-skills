@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "public");
 const fixed = process.argv.includes("--fixed");
 const withKit = process.argv.includes("--kit");
-const kitFile = fileURLToPath(new URL("../../skills/test-bombadil/assets/page-kit.js", import.meta.url));
+const kitFile = fileURLToPath(new URL("../../skills/test-explore/assets/page-kit.js", import.meta.url));
 const port = Number(process.env.PORT ?? 8765);
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml" };
 
