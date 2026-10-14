@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Tests"
+  short_description: "Counts, scaling ratios, benchmarks and load tests that do not flake"
+  default_prompt: "Use $test-performance to add performance checks for the code path, endpoint or page I name, with thresholds measured from baselines."

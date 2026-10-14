@@ -1,6 +1,6 @@
 ---
 name: test-guard
-description: "Guard that diffs a change against its base and flags weakened tests: deleted or skipped cases, loosened or rewritten assertions, re-recorded snapshots, lowered thresholds, retries. Use before committing agent work or in CI. Hands off to `test-audit`."
+description: "Guard that diffs a change against its base and flags weakened tests: deleted or skipped cases, loosened assertions, re-recorded snapshots, lowered thresholds, retries. Use before committing agent work or in CI. Hands off to `test-audit`."
 metadata:
   stage: triage
 ---

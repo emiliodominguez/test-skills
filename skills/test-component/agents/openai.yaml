@@ -1,0 +1,4 @@
+interface:
+  display_name: "Component Tests"
+  short_description: "UI component tests with accessible queries, user events and MSW"
+  default_prompt: "Use $test-component to write component tests for the UI component I name, covering its states and keyboard path."

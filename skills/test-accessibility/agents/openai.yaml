@@ -1,0 +1,4 @@
+interface:
+  display_name: "Accessibility Tests"
+  short_description: "axe scans in every state, keyboard and focus checks, screen reader smoke"
+  default_prompt: "Use $test-accessibility to add accessibility tests for the page or component I name."

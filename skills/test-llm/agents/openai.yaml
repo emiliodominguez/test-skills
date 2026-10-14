@@ -1,0 +1,4 @@
+interface:
+  display_name: "LLM Feature Tests"
+  short_description: "Mocked-model tests, output contracts and per-case eval gates"
+  default_prompt: "Use $test-llm to test the LLM feature I name: mocked-model unit tests for the code around the model, a schema contract on its output, and an eval set gated per case against a baseline."

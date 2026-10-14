@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Mug shop</title>
+		<style>
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				font:
+					16px/1.5 system-ui,
+					sans-serif;
+				color: #1f2937;
+				background: #ffffff;
+			}
+			header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0.5rem 1rem;
+				border-bottom: 1px solid #d1d5db;
+			}
+			main {
+				padding: 1rem;
+			}
+			.card {
+				max-width: 36rem;
+				padding: 1rem;
+				border: 1px solid #d1d5db;
+				border-radius: 0.5rem;
+			}
+			.card img {
+				display: block;
+				max-width: 100%;
+				height: auto;
+			}
+			.note {
+				color: #4b5563;
+			}
+			.error {
+				color: #b91c1c;
+			}
+			.badge {
+				display: inline-block;
+				padding: 0 0.5rem;
+				border-radius: 999px;
+				background: #1d4ed8;
+				color: #ffffff;
+				animation: pulse 1s ease-in-out infinite alternate;
+			}
+			@keyframes pulse {
+				to {
+					transform: scale(1.15);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				html:not(.seed-motion) .badge {
+					animation: none;
+				}
+			}
+			button,
+			.btn,
+			input {
+				font: inherit;
+				min-height: 2.5rem;
+				min-width: 2.5rem;
+			}
+			button,
+			.btn {
+				padding: 0.25rem 0.75rem;
+				border: 1px solid #1d4ed8;
+				border-radius: 0.375rem;
+				background: #1d4ed8;
+				color: #ffffff;
+				cursor: pointer;
+			}
+			.btn {
+				display: inline-block;
+			}
+			header button {
+				background: transparent;
+				color: #1f2937;
+				border-color: #6b7280;
+			}
+			:focus-visible {
+				outline: 3px solid #b45309;
+				outline-offset: 2px;
+			}
+			.backdrop {
+				position: fixed;
+				inset: 0;
+				display: grid;
+				place-items: center;
+				background: rgb(0 0 0 / 0.5);
+			}
+			.backdrop[hidden] {
+				display: none;
+			}
+			[role="dialog"] {
+				max-width: 22rem;
+				padding: 1rem;
+				border-radius: 0.5rem;
+				background: #ffffff;
+			}
+			/* Seeded bugs. Each class is set on <html> by seeded() below. */
+			.seed-contrast .note {
+				color: #b0b0b0;
+			}
+			.seed-contrast .error {
+				color: #ff8a8a;
+			}
+			.seed-outline :focus {
+				outline: none;
+			}
+			.seed-reflow .card {
+				width: 40rem;
+				max-width: none;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<strong>Mug shop</strong>
+			<button type="button" data-testid="menu" aria-label="Open menu">
+				<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20">
+					<path d="M2 4h16v2H2zm0 5h16v2H2zm0 5h16v2H2z" fill="currentColor" />
+				</svg>
+			</button>
+		</header>
+		<main id="main">
+			<h1>Blue mug <span class="badge">Sale</span></h1>
+			<div class="card">
+				<img
+					data-testid="photo"
+					alt="Blue ceramic mug with a white handle"
+					width="320"
+					height="120"
+					src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='120'%3E%3Crect width='320' height='120' fill='%231d4ed8'/%3E%3C/svg%3E"
+				/>
+				<p class="note">Dishwasher safe. Ships in two days.</p>
+				<button type="button" data-testid="add">Add to cart</button>
+				<p id="cart-status" data-testid="status" role="status"></p>
+			</div>
+			<h2>Newsletter</h2>
+			<form data-testid="newsletter" novalidate>
+				<label for="email" data-testid="email-label">Email</label>
+				<input id="email" data-testid="email" type="email" autocomplete="email" required aria-describedby="email-error" />
+				<p id="email-error" class="error" data-testid="email-error" hidden></p>
+				<button type="submit" data-testid="subscribe">Subscribe</button>
+			</form>
+			<h2>Account</h2>
+			<button type="button" data-testid="delete">Delete account</button>
+		</main>
+		<div class="backdrop" data-testid="backdrop" hidden>
+			<div role="dialog" aria-modal="true" aria-labelledby="confirm-title" data-testid="dialog">
+				<h2 id="confirm-title">Delete account?</h2>
+				<label for="confirm-text" data-testid="confirm-label">Type DELETE to confirm</label>
+				<input id="confirm-text" data-testid="confirm-text" autocomplete="off" />
+				<p>
+					<button type="button" data-testid="cancel">Cancel</button>
+					<button type="button" data-testid="confirm">Delete</button>
+				</p>
+			</div>
+		</div>
+		<script>
+			/**
+			 * Bugs to seed, from `?bugs=` as a comma-separated list. Empty means the correct page.
+			 *
+			 * @type {Set<string>}
+			 */
+			const bugs = new Set((new URLSearchParams(location.search).get("bugs") || "").split(",").filter(Boolean));
+
+			/**
+			 * Whether a seeded bug is switched on.
+			 *
+			 * @param {string} name - Bug name.
+			 * @returns {boolean} True when the bug is seeded.
+			 */
+			function seeded(name) {
+				return bugs.has(name);
+			}
+
+			/**
+			 * Find an element by its test id.
+			 *
+			 * @param {string} id - The `data-testid` value.
+			 * @returns {HTMLElement} The element.
+			 */
+			function byTestId(id) {
+				return document.querySelector('[data-testid="' + id + '"]');
+			}
+
+			/**
+			 * Apply the markup and style bugs before anything is wired.
+			 */
+			function applySeededMarkup() {
+				if (seeded("icon-name")) byTestId("menu").removeAttribute("aria-label");
+				if (seeded("img-alt")) byTestId("photo").removeAttribute("alt");
+				if (seeded("field-label")) byTestId("email-label").remove();
+				if (seeded("dialog-label")) byTestId("confirm-label").remove();
+				if (seeded("contrast")) document.documentElement.classList.add("seed-contrast");
+				if (seeded("focus-outline")) document.documentElement.classList.add("seed-outline");
+				if (seeded("reflow")) document.documentElement.classList.add("seed-reflow");
+				if (seeded("motion")) document.documentElement.classList.add("seed-motion");
+				if (seeded("live-region")) byTestId("status").removeAttribute("role");
+				if (seeded("error-link")) byTestId("email").removeAttribute("aria-describedby");
+				if (seeded("div-button")) {
+					const button = byTestId("add");
+					const div = document.createElement("div");
+
+					div.className = "btn";
+					div.dataset.testid = "add";
+					div.textContent = button.textContent;
+					button.replaceWith(div);
+				}
+			}
+
+			/** The element that had focus when the dialog opened. */
+			let opener = null;
+
+			/**
+			 * Elements inside the dialog that take keyboard focus, in order.
+			 *
+			 * @returns {HTMLElement[]} Focusable elements.
+			 */
+			function dialogFocusables() {
+				return Array.from(byTestId("dialog").querySelectorAll("input, button"));
+			}
+
+			/**
+			 * Open the confirmation dialog.
+			 */
+			function openDialog() {
+				opener = document.activeElement;
+				byTestId("backdrop").hidden = false;
+				if (!seeded("modal-trap")) {
+					document.getElementById("main").inert = true;
+					dialogFocusables()[0].focus();
+				}
+			}
+
+			/**
+			 * Close the confirmation dialog and hand focus back.
+			 */
+			function closeDialog() {
+				byTestId("backdrop").hidden = true;
+				document.getElementById("main").inert = false;
+				if (!seeded("focus-return") && opener instanceof HTMLElement) opener.focus();
+			}
+
+			/**
+			 * Keyboard handling while the dialog is open: Escape closes it, Tab wraps inside it.
+			 *
+			 * @param {KeyboardEvent} event - The key event.
+			 */
+			function onDialogKey(event) {
+				if (byTestId("backdrop").hidden) return;
+				if (event.key === "Escape" && !seeded("modal-escape")) {
+					event.preventDefault();
+					closeDialog();
+					return;
+				}
+				if (event.key !== "Tab" || seeded("modal-trap")) return;
+
+				const items = dialogFocusables();
+				const first = items[0];
+				const last = items[items.length - 1];
+
+				if (event.shiftKey && document.activeElement === first) {
+					event.preventDefault();
+					last.focus();
+				} else if (!event.shiftKey && document.activeElement === last) {
+					event.preventDefault();
+					first.focus();
+				}
+			}
+
+			/**
+			 * Add the mug to the cart and announce it.
+			 */
+			function addToCart() {
+				byTestId("status").textContent = "Added Blue mug to your cart.";
+			}
+
+			/**
+			 * Validate the newsletter form and show an error tied to the field.
+			 *
+			 * @param {SubmitEvent} event - The submit event.
+			 */
+			function onSubscribe(event) {
+				event.preventDefault();
+
+				const email = byTestId("email");
+				const error = byTestId("email-error");
+				const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value);
+
+				error.hidden = valid;
+				error.textContent = valid ? "" : "Enter an email address, like name@example.com.";
+				if (valid || seeded("error-link")) email.removeAttribute("aria-invalid");
+				else email.setAttribute("aria-invalid", "true");
+				if (!valid) email.focus();
+			}
+
+			applySeededMarkup();
+			byTestId("add").addEventListener("click", addToCart);
+			byTestId("newsletter").addEventListener("submit", onSubscribe);
+			byTestId("delete").addEventListener("click", openDialog);
+			byTestId("cancel").addEventListener("click", closeDialog);
+			byTestId("confirm").addEventListener("click", closeDialog);
+			document.addEventListener("keydown", onDialogKey);
+		</script>
+	</body>
+</html>

@@ -169,7 +169,12 @@ describe("classification", function classification() {
 	test.each([
 		["src/__snapshots__/cart.test.ts.snap", true],
 		["e2e/home.spec.ts-snapshots/home-chromium.png", true],
+		["tests/__screenshots__/home.spec.ts/home.png", true],
+		[".loki/reference/chrome_laptop_Button_Primary.png", true],
+		["backstop_data/bitmaps_reference/home_0_document_0_phone.png", true],
 		["src/cart.ts", false],
+		[".loki/current/chrome_laptop_Button_Primary.png", false],
+		["docs/screenshots/home.png", false],
 	])("isSnapshot(%s) is %s", function snapshot(file, expected) {
 		expect(isSnapshot(file)).toBe(expected);
 	});

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visual Regression Tests"
+  short_description: "Deterministic screenshot baselines, thresholds and reviewed updates"
+  default_prompt: "Use $test-visual to add deterministic screenshot tests for the component or page I name."

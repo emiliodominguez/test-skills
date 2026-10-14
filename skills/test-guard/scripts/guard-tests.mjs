@@ -56,7 +56,7 @@ export function isTestFile(file) {
  * @returns {boolean} True for snapshots.
  */
 export function isSnapshot(file) {
-	return /\.snap$|\.ambr$|(^|\/)__snapshots__\/|-snapshots\/.+\.(png|jpe?g|txt|ya?ml)$|\.golden(\.\w+)?$/u.test(file);
+	return /\.snap$|\.ambr$|(^|\/)(?:__snapshots__|__screenshots__|bitmaps_reference)\/|(^|\/)\.loki\/reference\/|-snapshots\/.+\.(png|jpe?g|txt|ya?ml)$|\.golden(\.\w+)?$/u.test(file);
 }
 
 /**

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Integration Tests"
+  short_description: "Real databases, migrations, contracts and fault injection"
+  default_prompt: "Use $test-integration to test the database, queue or service boundary I name against real dependencies."
